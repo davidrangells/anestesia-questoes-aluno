@@ -21,6 +21,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           pathname?.startsWith("/aluno/entrar") ||
           pathname?.startsWith("/aluno/criar-senha");
 
+        // 1) Se não está logado
         if (!user) {
           if (isPublic) {
             if (mountedRef.current) setLoading(false);
@@ -30,21 +31,30 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           return;
         }
 
-        // Checa entitlement por UID
-        const entRef = doc(db, "entitlements", user.uid);
-        const entSnap = await getDoc(entRef);
+        // 2) Se está em rota pública, NÃO bloqueia por entitlement
+        //    (só redireciona pro painel se tiver acesso)
+        if (isPublic) {
+          const entRef = doc(db, "entitlements", user.uid);
+          const entSnap = await getDoc(entRef);
+          const active = entSnap.exists() && entSnap.data()?.active === true;
 
-        const active = entSnap.exists() && entSnap.data()?.active === true;
+          if (active) {
+            router.replace("/aluno");
+            return;
+          }
 
-        if (!active) {
-          // logged, but no access
-          router.replace("/aluno/entrar?erro=sem_acesso");
+          // sem acesso -> deixa renderizar a tela pública
+          if (mountedRef.current) setLoading(false);
           return;
         }
 
-        // se já tem acesso e está em páginas públicas -> manda pro painel
-        if (isPublic) {
-          router.replace("/aluno");
+        // 3) Rotas privadas: exige entitlement
+        const entRef = doc(db, "entitlements", user.uid);
+        const entSnap = await getDoc(entRef);
+        const active = entSnap.exists() && entSnap.data()?.active === true;
+
+        if (!active) {
+          router.replace("/aluno/entrar?erro=sem_acesso");
           return;
         }
 

@@ -1,3 +1,4 @@
+// src/app/aluno/entrar/page.tsx
 import { Suspense } from "react";
 import LoginClient from "./login-client";
 
@@ -8,7 +9,7 @@ export default function Page() {
     <Suspense
       fallback={
         <div className="min-h-screen flex items-center justify-center text-sm text-slate-500">
-          Carregando…
+          Carregando...
         </div>
       }
     >
