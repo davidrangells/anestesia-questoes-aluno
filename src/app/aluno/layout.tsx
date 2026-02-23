@@ -1,5 +1,4 @@
-import AlunoGuard from "@/components/AlunoGuard";
-
-export default function AlunoLayout({ children }: { children: React.ReactNode }) {
-  return <AlunoGuard>{children}</AlunoGuard>;
+// src/app/aluno/layout.tsx
+export default function AlunoRootLayout({ children }: { children: React.ReactNode }) {
+  return <div className="min-h-screen bg-slate-50">{children}</div>;
 }
