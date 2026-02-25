@@ -1,4 +1,6 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
@@ -23,4 +25,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* placeholders mais legíveis */
+::placeholder {
+  color: rgb(100 116 139 / 0.75); /* slate-500/75 */
+}
+
+/* inputs disabled menos “invisíveis” */
+input:disabled, button:disabled {
+  opacity: .55;
 }

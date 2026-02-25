@@ -9,6 +9,15 @@ function cn(...xs: Array<string | false | undefined | null>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function isActivePath(pathname: string | null, href: string) {
+  if (!pathname) return false;
+
+  // ✅ evita /aluno ficar ativo em /aluno/provas, /aluno/simulados, etc.
+  if (href === "/aluno") return pathname === "/aluno" || pathname === "/aluno/";
+
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
 function Item({
   href,
   label,
@@ -19,12 +28,7 @@ function Item({
   icon: string;
 }) {
   const pathname = usePathname();
-
-  // ✅ Dashboard só fica ativo quando estiver exatamente em /aluno
-  const isDashboard = href === "/aluno";
-  const active = isDashboard
-    ? pathname === "/aluno"
-    : pathname === href || pathname?.startsWith(href + "/");
+  const active = isActivePath(pathname, href);
 
   return (
     <Link
@@ -78,11 +82,12 @@ export default function AlunoSidebar() {
       <nav className="px-4 py-4 flex flex-col gap-2">
         <Item href="/aluno" label="Dashboard" icon="🏠" />
         <Item href="/aluno/provas" label="Provas" icon="📝" />
+        <Item href="/aluno/simulados" label="Simulados" icon="🧠" />
         <Item href="/aluno/ranking" label="Ranking" icon="🏆" />
+        <Item href="/aluno/assinatura" label="Assinatura" icon="💳" />
         <Item href="/aluno/perfil" label="Perfil" icon="👤" />
       </nav>
 
-      {/* Footer actions */}
       <div className="mt-auto px-4 py-4 border-t">
         <button
           onClick={logout}
