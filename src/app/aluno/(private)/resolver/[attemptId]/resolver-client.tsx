@@ -9,6 +9,7 @@ import {
   confirmAnswer,
   setCurrentIndex,
   finishAttempt,
+  type AttemptDoc,
 } from "@/lib/simulados";
 
 type Question = {
@@ -29,9 +30,10 @@ function cn(...xs: Array<string | false | undefined | null>) {
 export default function ResolverClient({ attemptId }: { attemptId: string }) {
   const router = useRouter();
 
-  const [attempt, setAttempt] = useState<any>(null);
+  const [attempt, setAttempt] = useState<AttemptDoc | null>(null);
   const [question, setQuestion] = useState<Question | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
 
   const [selected, setSelected] = useState<string | null>(null);
   const [confirmed, setConfirmed] = useState(false);
@@ -44,17 +46,42 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
 
   async function load() {
     setLoading(true);
+    setLoadError("");
 
-    const a = await getAttempt(attemptId);
-    const qId = a.questionIds[a.currentIndex];
-    const q = await getQuestionById(qId);
+    try {
+      const a = await getAttempt(attemptId);
 
-    setAttempt(a);
-    setQuestion(q);
-    setSelected(null);
-    setConfirmed(false);
-    setIsCorrect(null);
-    setLoading(false);
+      const total = (a.totalQuestions ?? a.questionIds?.length ?? 0) || 0;
+      if (!total || !a.questionIds?.length) {
+        setAttempt(a);
+        setQuestion(null);
+        setLoadError("Este simulado não possui questões vinculadas.");
+        return;
+      }
+
+      const currentIndex = Math.max(0, Math.min(a.currentIndex ?? 0, a.questionIds.length - 1));
+      const qId = a.questionIds[currentIndex];
+
+      if (!qId) {
+        setAttempt({ ...a, currentIndex });
+        setQuestion(null);
+        setLoadError("Questão inválida nesta tentativa.");
+        return;
+      }
+
+      const q = (await getQuestionById(qId)) as any;
+
+      setAttempt({ ...a, currentIndex });
+      setQuestion(q);
+      setSelected(null);
+      setConfirmed(false);
+      setIsCorrect(null);
+    } catch (e: any) {
+      console.error(e);
+      setLoadError(e?.message || "Falha ao carregar o simulado.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   const enunciado = useMemo(() => {
@@ -65,50 +92,79 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
     return question?.comentario ?? question?.explanation ?? "";
   }, [question]);
 
-  const progress = useMemo(() => {
-    if (!attempt) return "";
-    return `${attempt.currentIndex + 1} de ${attempt.total}`;
+  const correctId = useMemo(() => {
+    return (question?.correctOptionId ?? question?.respostaCorreta ?? "").trim() || null;
+  }, [question]);
+
+  const total = useMemo(() => {
+    if (!attempt) return 0;
+    return (attempt.totalQuestions ?? attempt.questionIds?.length ?? 0) || 0;
   }, [attempt]);
 
-  const correctId = useMemo(() => {
-    return question?.correctOptionId ?? question?.respostaCorreta ?? null;
-  }, [question]);
+  const progress = useMemo(() => {
+    if (!attempt || !total) return "";
+    return `${attempt.currentIndex + 1} de ${total}`;
+  }, [attempt, total]);
 
   async function handleConfirm() {
     if (!selected || !question) return;
 
-    const result = await confirmAnswer({
-      attemptId,
-      question,
-      selectedOptionId: selected,
-    });
+    try {
+      const result = await confirmAnswer({
+        attemptId,
+        question: { id: question.id, correctOptionId: correctId || "" },
+        selectedOptionId: selected,
+      });
 
-    setIsCorrect(result);
-    setConfirmed(true);
+      setIsCorrect(Boolean(result?.isCorrect));
+      setConfirmed(true);
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Falha ao confirmar resposta.");
+    }
   }
 
   async function handleNext() {
     if (!attempt) return;
 
-    const nextIndex = attempt.currentIndex + 1;
+    const nextIndex = (attempt.currentIndex ?? 0) + 1;
 
-    if (nextIndex >= attempt.total) {
-      await finishAttempt(attemptId);
+    // terminou
+    if (total && nextIndex >= total) {
+      try {
+        await finishAttempt(attemptId);
+      } catch (e) {
+        console.error(e);
+      }
       router.push("/aluno/simulados");
       return;
     }
 
-    await setCurrentIndex(attemptId, nextIndex);
+    try {
+      await setCurrentIndex(attemptId, nextIndex);
 
-    const newAttempt = await getAttempt(attemptId);
-    const qId = newAttempt.questionIds[nextIndex];
-    const q = await getQuestionById(qId);
+      const newAttempt = await getAttempt(attemptId);
+      const qId = newAttempt.questionIds?.[nextIndex];
 
-    setAttempt(newAttempt);
-    setQuestion(q);
-    setSelected(null);
-    setConfirmed(false);
-    setIsCorrect(null);
+      if (!qId) {
+        setAttempt({ ...newAttempt, currentIndex: nextIndex });
+        setQuestion(null);
+        setLoadError("Questão inválida nesta tentativa.");
+        return;
+      }
+
+      const q = (await getQuestionById(qId)) as any;
+
+      setAttempt({ ...newAttempt, currentIndex: nextIndex });
+      setQuestion(q);
+      setSelected(null);
+      setConfirmed(false);
+      setIsCorrect(null);
+      setLoadError("");
+    } catch (e: any) {
+      console.error(e);
+      alert(e?.message || "Falha ao avançar para a próxima questão.");
+    }
   }
 
   if (loading) {
@@ -120,6 +176,33 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
             <div className="h-3 w-full bg-slate-200 rounded-full animate-pulse" />
             <div className="h-3 w-11/12 bg-slate-200 rounded-full animate-pulse" />
             <div className="h-3 w-10/12 bg-slate-200 rounded-full animate-pulse" />
+          </div>
+        </div>
+      </AlunoShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <AlunoShell title="Simulado" subtitle="Erro ao carregar">
+        <div className="rounded-[28px] border border-slate-200/70 bg-white/80 p-6 shadow-[0_16px_50px_rgba(15,23,42,0.08)] backdrop-blur space-y-4">
+          <div className="text-sm font-semibold text-slate-900">Não foi possível carregar.</div>
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            {loadError}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button
+              onClick={() => router.push("/aluno/simulados")}
+              className="rounded-2xl px-4 py-3 border border-slate-200 bg-white text-sm font-semibold text-slate-900 hover:bg-slate-50 transition"
+            >
+              Voltar
+            </button>
+            <button
+              onClick={load}
+              className="rounded-2xl px-4 py-3 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800 transition"
+            >
+              Tentar novamente
+            </button>
           </div>
         </div>
       </AlunoShell>
@@ -142,8 +225,8 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
       subtitle={`Questão ${progress}`}
       actions={
         <div className="flex items-center gap-2">
-          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-600">
-            {attempt.quizTitle ?? "Simulado"}
+          <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700">
+            {attempt.title ?? "Simulado"}
           </div>
           <div className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white">
             {progress}
@@ -152,28 +235,22 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
       }
     >
       <div className="space-y-6">
-        {/* Pergunta */}
         <div className="rounded-[28px] border border-slate-200/70 bg-white/80 shadow-[0_16px_50px_rgba(15,23,42,0.08)] backdrop-blur">
           <div className="px-6 py-6 border-b border-slate-200/60">
             <div className="text-xs font-semibold text-slate-500">Pergunta</div>
-            <div className="mt-2 text-[15px] leading-7 text-slate-900">
-              {enunciado}
-            </div>
+            <div className="mt-2 text-[15px] leading-7 text-slate-900">{enunciado}</div>
           </div>
 
           <div className="px-6 py-6">
-            <div className="text-xs font-semibold text-slate-500 mb-3">
-              Respostas
-            </div>
+            <div className="text-xs font-semibold text-slate-500 mb-3">Respostas</div>
 
             <div className="space-y-3">
               {question.options.map((opt) => {
                 const isSelected = selected === opt.id;
 
-                const showResult = confirmed && correctId;
+                const showResult = confirmed && !!correctId;
                 const isCorrectOpt = showResult && opt.id === correctId;
-                const isWrongOpt =
-                  showResult && isSelected && opt.id !== correctId;
+                const isWrongOpt = showResult && isSelected && opt.id !== correctId;
 
                 return (
                   <button
@@ -208,9 +285,7 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
                       </div>
 
                       <div className="min-w-0">
-                        <div className="text-[14px] leading-6 text-slate-900">
-                          {opt.text}
-                        </div>
+                        <div className="text-[14px] leading-6 text-slate-900">{opt.text}</div>
 
                         {isCorrectOpt && confirmed ? (
                           <div className="mt-2 inline-flex items-center gap-2 text-xs font-semibold text-emerald-700">
@@ -240,9 +315,7 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
                   className={cn(
                     "w-full rounded-2xl py-3.5 text-sm font-semibold text-white transition",
                     "shadow-[0_14px_40px_rgba(2,6,23,0.18)]",
-                    selected
-                      ? "bg-slate-900 hover:bg-slate-800"
-                      : "bg-slate-400 cursor-not-allowed"
+                    selected ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-400 cursor-not-allowed"
                   )}
                 >
                   Confirmar resposta
@@ -257,20 +330,11 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
                 <div
                   className={cn(
                     "rounded-2xl border px-4 py-4",
-                    isCorrect
-                      ? "border-emerald-200 bg-emerald-50"
-                      : "border-rose-200 bg-rose-50"
+                    isCorrect ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
                   )}
                 >
-                  <div className="text-sm font-bold text-slate-900">
-                    Resultado
-                  </div>
-                  <div
-                    className={cn(
-                      "mt-1 text-sm font-semibold",
-                      isCorrect ? "text-emerald-700" : "text-rose-700"
-                    )}
-                  >
+                  <div className="text-sm font-bold text-slate-900">Resultado</div>
+                  <div className={cn("mt-1 text-sm font-semibold", isCorrect ? "text-emerald-700" : "text-rose-700")}>
                     {isCorrect ? "✅ Você acertou!" : "❌ Você errou."}
                   </div>
                   {correctId ? (
@@ -282,12 +346,8 @@ export default function ResolverClient({ attemptId }: { attemptId: string }) {
 
                 {comentario ? (
                   <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4">
-                    <div className="text-sm font-bold text-slate-900">
-                      Comentário
-                    </div>
-                    <div className="mt-2 text-sm leading-7 text-slate-700 whitespace-pre-line">
-                      {comentario}
-                    </div>
+                    <div className="text-sm font-bold text-slate-900">Comentário</div>
+                    <div className="mt-2 text-sm leading-7 text-slate-700 whitespace-pre-line">{comentario}</div>
                   </div>
                 ) : null}
 
