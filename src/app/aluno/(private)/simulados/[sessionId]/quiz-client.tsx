@@ -235,36 +235,59 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setError("");
 
     try {
-      const isCorrect = selectedId === currentQuestion.correctOptionId;
-
       const sessRef = doc(db, "users", u.uid, "sessions", sessionId);
+      const sessSnap = await getDoc(sessRef);
+
+      if (!sessSnap.exists()) {
+        throw new Error("Sessão não encontrada.");
+      }
+
+      const data = sessSnap.data() as any;
+      const answersMap = data.answersMap ?? {};
 
       const qid = currentQuestion.id;
+      const alreadyAnswered = !!answersMap[qid];
 
-      // ✅ salva imediatamente na session (answersMap)
-      await updateDoc(sessRef, {
+      const isCorrect = selectedId === currentQuestion.correctOptionId;
+
+      const updatePayload: any = {
         [`answersMap.${qid}`]: {
           selectedOptionId: selectedId,
           isCorrect,
           answeredAt: serverTimestamp(),
-        } as AnswerMapItem,
-        answeredCount: increment(1),
-        correctCount: isCorrect ? increment(1) : increment(0),
+        },
         updatedAt: serverTimestamp(),
-      });
+      };
 
-      // ✅ atualiza estado local
-      setSession((prev) => {
+      // ✅ Só incrementa se ainda não respondeu
+      if (!alreadyAnswered) {
+        updatePayload.answeredCount = increment(1);
+        if (isCorrect) {
+          updatePayload.correctCount = increment(1);
+        }
+      }
+
+      await updateDoc(sessRef, updatePayload);
+
+      // Atualiza estado local corretamente
+      setSession((prev: any) => {
         if (!prev) return prev;
-        const prevMap = prev.answersMap ?? {};
+
+        const nextMap = {
+          ...(prev.answersMap ?? {}),
+          [qid]: { selectedOptionId: selectedId, isCorrect },
+        };
+
         return {
           ...prev,
-          answeredCount: (prev.answeredCount ?? 0) + 1,
-          correctCount: (prev.correctCount ?? 0) + (isCorrect ? 1 : 0),
-          answersMap: {
-            ...prevMap,
-            [qid]: { selectedOptionId: selectedId, isCorrect },
-          },
+          answersMap: nextMap,
+          answeredCount: alreadyAnswered
+            ? prev.answeredCount
+            : (prev.answeredCount ?? 0) + 1,
+          correctCount:
+            alreadyAnswered
+              ? prev.correctCount
+              : (prev.correctCount ?? 0) + (isCorrect ? 1 : 0),
         };
       });
 
