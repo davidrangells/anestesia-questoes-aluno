@@ -15,7 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import Badge from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
