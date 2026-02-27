@@ -286,7 +286,8 @@ export default function DashboardClient() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-3">
             {recentTop3.map((s) => {
-              const title = s.title?.trim() || "Simulado";
+              const titleRaw = s.title?.trim() || "Simulado";
+              const title = titleRaw.split("•")[0].trim() || "Simulado"; // pega só antes do primeiro •
               const total = safeNum(s.totalQuestions);
               const answered = safeNum(s.answeredCount);
               const correct = safeNum(s.correctCount);
@@ -377,7 +378,7 @@ export default function DashboardClient() {
           </div>
         )}
       </div>
-      
+
       {/* Cards principais */}
       <div className="grid gap-4 sm:grid-cols-3">
         {/* Progresso */}
