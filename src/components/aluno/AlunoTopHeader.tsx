@@ -1,53 +1,44 @@
 "use client";
 
-import { usePathname } from "next/navigation";
-import { auth } from "@/lib/firebase";
-
-function getBreadcrumb(pathname: string | null) {
-  if (!pathname) return "Dashboard";
-
-  if (pathname.startsWith("/aluno/resolver")) return "Simulado";
-  if (pathname.startsWith("/aluno/simulados")) return "Simulados";
-  if (pathname.startsWith("/aluno/provas")) return "Provas";
-  if (pathname.startsWith("/aluno/ranking")) return "Ranking";
-  if (pathname.startsWith("/aluno/perfil")) return "Perfil";
-
-  return "Dashboard";
-}
-
-export default function AlunoTopHeader() {
-  const pathname = usePathname();
-  const user = auth.currentUser;
-
-  const breadcrumb = getBreadcrumb(pathname);
-
-  const initials =
-    user?.email?.slice(0, 2).toUpperCase() ?? "AQ";
-
+export default function AlunoTopHeader({
+  onOpenMenu,
+}: {
+  onOpenMenu?: () => void;
+}) {
   return (
-    <div className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200/70">
-      <div className="flex items-center justify-between px-6 lg:px-10 py-4">
-        {/* Left */}
-        <div>
-          <div className="text-xs text-slate-500 font-semibold">
-            Área do Aluno
-          </div>
-          <div className="text-lg font-black text-slate-900">
-            {breadcrumb}
+    <header className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-slate-200">
+      <div className="flex items-center justify-between px-6 sm:px-8 lg:px-10 py-4">
+
+        {/* LADO ESQUERDO */}
+        <div className="flex items-center gap-3">
+
+          {/* BOTÃO MOBILE */}
+          <button
+            onClick={onOpenMenu}
+            className="lg:hidden h-10 w-10 rounded-xl border border-slate-200 flex items-center justify-center text-lg bg-white"
+          >
+            ☰
+          </button>
+
+          <div>
+            <div className="text-xs font-semibold text-slate-500">
+              Área do Aluno
+            </div>
+            <div className="text-lg font-black text-slate-900">
+              Anestesia Questões
+            </div>
           </div>
         </div>
 
-        {/* Right */}
+        {/* LADO DIREITO */}
         <div className="flex items-center gap-4">
-          <div className="hidden sm:block text-sm text-slate-600">
-            {user?.email}
-          </div>
 
-          <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold shadow-lg">
-            {initials}
+          {/* Avatar */}
+          <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold shadow">
+            TE
           </div>
         </div>
       </div>
-    </div>
+    </header>
   );
 }
