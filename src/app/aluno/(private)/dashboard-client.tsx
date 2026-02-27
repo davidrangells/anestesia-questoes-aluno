@@ -111,6 +111,11 @@ export default function DashboardClient() {
 
   const lastSession = useMemo(() => sessions[0] ?? null, [sessions]);
 
+  const recentTop3 = useMemo(() => {
+    // já está ordenado por updatedAt desc no load()
+    return sessions.slice(0, 3);
+  }, [sessions]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -261,6 +266,118 @@ export default function DashboardClient() {
         </CardHeader>
       </Card>
 
+      {/* Recentes */}
+      <div className="space-y-3">
+        <div className="flex items-end justify-between">
+          <div>
+            <div className="text-lg font-black text-slate-900">Simulados recentes</div>
+            <div className="text-sm text-slate-600">Seus últimos 3 simulados</div>
+          </div>
+
+          <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+            Ver todos
+          </Button>
+        </div>
+
+        {recentTop3.length === 0 ? (
+          <div className="rounded-3xl border bg-white p-6 shadow-sm text-slate-600">
+            Você ainda não iniciou nenhum simulado.
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-3">
+            {recentTop3.map((s) => {
+              const title = s.title?.trim() || "Simulado";
+              const total = safeNum(s.totalQuestions);
+              const answered = safeNum(s.answeredCount);
+              const correct = safeNum(s.correctCount);
+              const status = s.status ?? "in_progress";
+
+              const pct =
+                status === "completed"
+                  ? safeNum(s.scorePercent, 0)
+                  : total > 0
+                  ? (answered / total) * 100
+                  : 0;
+
+              const badgeCls =
+                status === "completed"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200";
+
+              const badgeText = status === "completed" ? "Concluído" : "Em andamento";
+
+              return (
+                <Card key={s.id} className="overflow-hidden">
+                  <CardHeader className="space-y-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs font-semibold text-slate-500">Simulado</div>
+                        <div className="mt-1 font-black text-slate-900 truncate">{title}</div>
+                      </div>
+
+                      <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${badgeCls}`}>
+                        {badgeText}
+                      </span>
+                    </div>
+
+                    <div className="rounded-2xl border bg-slate-50 px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-xs font-semibold text-slate-500">
+                          {status === "completed" ? "Nota" : "Progresso"}
+                        </div>
+                        <div className="text-xs font-semibold text-slate-600">
+                          {answered}/{total || "—"}
+                        </div>
+                      </div>
+
+                      <div className="mt-1 text-2xl font-black text-slate-900">{formatPct(pct)}</div>
+
+                      <div className="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-slate-900 transition-all"
+                          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                        />
+                      </div>
+
+                      <div className="mt-2 text-xs text-slate-600">
+                        {correct ? (
+                          <>
+                            Acertos: <span className="font-semibold text-slate-900">{correct}</span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2">
+                      {status !== "completed" ? (
+                        <Button className="flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                          Continuar
+                        </Button>
+                      ) : (
+                        <Button className="flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
+                          Resultado
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="secondary"
+                        onClick={() => router.push("/aluno/simulados")}
+                        className="px-4"
+                        title="Ver todos"
+                      >
+                        ⋯
+                      </Button>
+                    </div>
+                  </CardHeader>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+      
       {/* Cards principais */}
       <div className="grid gap-4 sm:grid-cols-3">
         {/* Progresso */}
