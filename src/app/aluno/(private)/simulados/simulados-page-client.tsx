@@ -51,15 +51,30 @@ function formatDate(ts: any) {
   }
 }
 
+/**
+ * Corrige o "Simulado • Todas • Todos • Todos"
+ * - Mantém o primeiro item como title
+ * - Remove tokens "Todos/Todas" do subtitle
+ */
 function normalizeTitle(raw?: string) {
   const titleRaw = (raw ?? "").trim();
   if (!titleRaw) return { title: "Simulado", subtitle: "" };
 
-  // separa "Simulado • TSA • Todos..." -> title = "Simulado", subtitle = resto
-  const parts = titleRaw.split("•").map((p) => p.trim()).filter(Boolean);
+  const parts = titleRaw
+    .split("•")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
   const title = parts[0] || "Simulado";
-  const subtitle = parts.slice(1).join(" • ");
-  return { title, subtitle };
+
+  const cleaned = parts
+    .slice(1)
+    .filter((p) => !/^tod[oa]s?$/i.test(p)); // remove: Todo, Todos, Toda, Todas
+
+  return {
+    title,
+    subtitle: cleaned.join(" • "),
+  };
 }
 
 export default function SimuladosPageClient() {
@@ -133,9 +148,7 @@ export default function SimuladosPageClient() {
             <div className="text-2xl font-black text-slate-900">Simulados</div>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge>
-                {inProgressCount} em andamento
-              </Badge>
+              <Badge>{inProgressCount} em andamento</Badge>
               <span className="text-xs text-slate-500">
                 Atualize recarregando a página.
               </span>
@@ -153,7 +166,7 @@ export default function SimuladosPageClient() {
         </CardHeader>
       </Card>
 
-      {/* Estado */}
+      {/* Estado de erro */}
       {err ? (
         <Card>
           <CardBody>
@@ -198,6 +211,7 @@ export default function SimuladosPageClient() {
           const total = Number(s.totalQuestions ?? 0) || 0;
           const answered = Number(s.answeredCount ?? 0) || 0;
           const correct = Number(s.correctCount ?? 0) || 0;
+
           const percent =
             Number.isFinite(s.scorePercent) && s.scorePercent != null
               ? Number(s.scorePercent)
@@ -215,23 +229,22 @@ export default function SimuladosPageClient() {
             <Card key={s.id}>
               <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {/* Left info */}
-                <div className="min-w-0">
+                <div className="min-w-0 w-full">
                   <div className="flex flex-wrap items-center gap-2">
                     <div className="font-black text-slate-900 truncate max-w-[100%]">
                       {title}
                     </div>
-                    {status ? (
-                      <span
-                        className={cn(
-                          "text-[11px] font-bold px-2 py-1 rounded-full border",
-                          isCompleted
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                        )}
-                      >
-                        {isCompleted ? "Concluído" : "Em andamento"}
-                      </span>
-                    ) : null}
+
+                    <span
+                      className={cn(
+                        "text-[11px] font-bold px-2 py-1 rounded-full border",
+                        isCompleted
+                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                      )}
+                    >
+                      {isCompleted ? "Concluído" : "Em andamento"}
+                    </span>
                   </div>
 
                   {subtitle ? (
@@ -267,25 +280,18 @@ export default function SimuladosPageClient() {
                 {/* Actions */}
                 <div className="flex flex-wrap gap-2 sm:justify-end">
                   {!isCompleted ? (
-                    <Button
-                      onClick={() => router.push(`/aluno/simulados/${s.id}`)}
-                    >
+                    <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
                       Retomar
                     </Button>
                   ) : (
                     <Button
-                      onClick={() =>
-                        router.push(`/aluno/simulados/${s.id}/resultado`)
-                      }
+                      onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}
                     >
                       Resultado
                     </Button>
                   )}
 
-                  <Button
-                    variant="secondary"
-                    onClick={() => onDelete(s.id)}
-                  >
+                  <Button variant="secondary" onClick={() => onDelete(s.id)}>
                     Excluir
                   </Button>
                 </div>
@@ -295,7 +301,7 @@ export default function SimuladosPageClient() {
         })}
       </div>
 
-      {/* Link fallback (caso precise) */}
+      {/* Link fallback */}
       <div className="text-xs text-slate-400">
         Se algum botão não abrir, acesse:{" "}
         <Link className="underline" href="/aluno/simulados/novo">
