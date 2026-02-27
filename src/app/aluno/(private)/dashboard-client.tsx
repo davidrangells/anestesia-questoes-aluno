@@ -3,15 +3,20 @@
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs, query } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 type SessionDoc = {
+  id: string; // ✅ doc id = sessionId
+
   status?: "in_progress" | "completed";
   totalQuestions?: number;
   answeredCount?: number;
   correctCount?: number;
   scorePercent?: number;
+
   updatedAt?: any;
   title?: string;
 };
@@ -26,7 +31,16 @@ function safeNum(v: any, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function tsToMs(v: any): number {
+  if (!v) return 0;
+  if (typeof v === "object" && typeof v?.toMillis === "function") return v.toMillis();
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
 export default function DashboardClient() {
+  const router = useRouter();
+
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
@@ -50,8 +64,14 @@ export default function DashboardClient() {
       const items: SessionDoc[] = [];
 
       snap.forEach((docSnap) => {
-        items.push(docSnap.data() as SessionDoc);
+        items.push({
+          id: docSnap.id,
+          ...(docSnap.data() as any),
+        });
       });
+
+      // ordena por updatedAt desc (mais recente primeiro)
+      items.sort((a, b) => tsToMs(b.updatedAt) - tsToMs(a.updatedAt));
 
       setSessions(items);
     } catch (e: any) {
@@ -69,7 +89,6 @@ export default function DashboardClient() {
 
   const stats = useMemo(() => {
     const totalSimulados = sessions.length;
-
     const concluidos = sessions.filter((s) => s.status === "completed").length;
 
     const totalQuestoes = sessions.reduce((acc, s) => acc + safeNum(s.totalQuestions), 0);
@@ -90,6 +109,8 @@ export default function DashboardClient() {
     };
   }, [sessions]);
 
+  const lastSession = useMemo(() => sessions[0] ?? null, [sessions]);
+
   if (loading) {
     return (
       <div className="space-y-6">
@@ -106,6 +127,12 @@ export default function DashboardClient() {
               <div className="mt-3 h-3 w-40 rounded-full bg-slate-200 animate-pulse" />
             </div>
           ))}
+        </div>
+
+        <div className="rounded-3xl border bg-white p-6 shadow-sm">
+          <div className="h-3 w-36 rounded-full bg-slate-200 animate-pulse" />
+          <div className="mt-4 h-10 w-72 rounded-full bg-slate-200 animate-pulse" />
+          <div className="mt-3 h-3 w-56 rounded-full bg-slate-200 animate-pulse" />
         </div>
       </div>
     );
@@ -124,24 +151,31 @@ export default function DashboardClient() {
             {err}
           </div>
 
-          <button
-            onClick={load}
-            className="mt-4 rounded-2xl px-5 py-3 bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
-          >
+          <Button className="mt-4" onClick={load}>
             Tentar novamente
-          </button>
+          </Button>
         </div>
       </div>
     );
   }
 
   const progressoLabel =
-    stats.totalQuestoes > 0
-      ? `${stats.respondidas} / ${stats.totalQuestoes}`
-      : "—";
+    stats.totalQuestoes > 0 ? `${stats.respondidas} / ${stats.totalQuestoes}` : "—";
 
   const resolvidasLabel = stats.respondidas > 0 ? String(stats.respondidas) : "—";
   const aproveitamentoLabel = stats.respondidas > 0 ? formatPct(stats.aproveitamentoPct) : "—";
+
+  const lastTitle = lastSession?.title?.trim() || "Simulado";
+  const lastTotal = safeNum(lastSession?.totalQuestions);
+  const lastAnswered = safeNum(lastSession?.answeredCount);
+  const lastCorrect = safeNum(lastSession?.correctCount);
+  const lastStatus = lastSession?.status ?? "in_progress";
+  const lastScore =
+    lastStatus === "completed"
+      ? formatPct(safeNum(lastSession?.scorePercent, 0))
+      : lastTotal > 0
+      ? formatPct((lastAnswered / lastTotal) * 100)
+      : "—";
 
   return (
     <div className="space-y-6">
@@ -151,14 +185,83 @@ export default function DashboardClient() {
           <div className="text-sm text-slate-600 mt-1">Visão geral do seu desempenho</div>
         </div>
 
-        <button
-          onClick={load}
-          className="rounded-2xl px-5 py-3 border bg-white font-semibold text-slate-900 hover:bg-slate-50 transition"
-        >
+        <Button variant="secondary" onClick={load}>
           Atualizar
-        </button>
+        </Button>
       </div>
 
+      {/* Último simulado */}
+      <Card>
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs font-semibold text-slate-500">Último simulado</div>
+            <div className="mt-1 text-xl font-black text-slate-900 truncate">{lastTitle}</div>
+
+            {lastSession ? (
+              <div className="mt-2 text-sm text-slate-600">
+                Status:{" "}
+                <span className="font-semibold text-slate-900">
+                  {lastStatus === "completed" ? "Concluído" : "Em andamento"}
+                </span>{" "}
+                • Respondidas:{" "}
+                <span className="font-semibold text-slate-900">{lastAnswered}</span>
+                {lastTotal ? (
+                  <>
+                    {" "}
+                    / <span className="font-semibold text-slate-900">{lastTotal}</span>
+                  </>
+                ) : null}
+                {lastCorrect ? (
+                  <>
+                    {" "}
+                    • Acertos: <span className="font-semibold text-slate-900">{lastCorrect}</span>
+                  </>
+                ) : null}
+              </div>
+            ) : (
+              <div className="mt-2 text-sm text-slate-600">
+                Você ainda não iniciou nenhum simulado.
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:items-end gap-2">
+            <div className="rounded-2xl border bg-slate-50 px-4 py-3">
+              <div className="text-xs font-semibold text-slate-500">
+                {lastStatus === "completed" ? "Nota" : "Progresso"}
+              </div>
+              <div className="mt-1 text-2xl font-black text-slate-900">{lastScore}</div>
+            </div>
+
+            {lastSession ? (
+              <div className="flex gap-2">
+                {lastStatus !== "completed" ? (
+                  <Button onClick={() => router.push(`/aluno/simulados/${lastSession.id}`)}>
+                    Continuar
+                  </Button>
+                ) : (
+                  <Button onClick={() => router.push(`/aluno/simulados/${lastSession.id}/resultado`)}>
+                    Ver resultado
+                  </Button>
+                )}
+
+                <Button
+                  variant="secondary"
+                  onClick={() => router.push("/aluno/simulados")}
+                >
+                  Ver todos
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => router.push("/aluno/simulados")}>
+                Ir para simulados
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Cards principais */}
       <div className="grid gap-4 sm:grid-cols-3">
         {/* Progresso */}
         <Card>
