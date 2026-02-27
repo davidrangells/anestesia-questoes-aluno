@@ -1,74 +1,78 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
-function getInitials(email?: string | null) {
-  if (!email) return "AQ";
-  const name = email.split("@")[0] || "";
-  const parts = name.split(/[.\-_]/g).filter(Boolean);
-  const a = (parts[0]?.[0] || name[0] || "A").toUpperCase();
-  const b = (parts[1]?.[0] || name[1] || "Q").toUpperCase();
-  return `${a}${b}`;
-}
+function getBreadcrumb(pathname: string | null) {
+  if (!pathname) return "Dashboard";
 
-function getTitleFromPath(pathname: string) {
-  // ajuste conforme suas rotas reais
-  if (pathname.startsWith("/aluno/provas")) return "Provas";
+  if (pathname.startsWith("/aluno/resolver")) return "Simulado";
   if (pathname.startsWith("/aluno/simulados")) return "Simulados";
+  if (pathname.startsWith("/aluno/provas")) return "Provas";
   if (pathname.startsWith("/aluno/ranking")) return "Ranking";
   if (pathname.startsWith("/aluno/assinatura")) return "Assinatura";
   if (pathname.startsWith("/aluno/perfil")) return "Perfil";
+
   return "Dashboard";
 }
 
 export default function AlunoTopHeader({
-  onOpenMenu,
-  userEmail,
+  onMenuClick,
 }: {
-  onOpenMenu?: () => void;
-  userEmail?: string | null;
+  onMenuClick?: () => void;
 }) {
   const pathname = usePathname();
 
-  const title = useMemo(() => getTitleFromPath(pathname || ""), [pathname]);
-  const initials = useMemo(() => getInitials(userEmail), [userEmail]);
+  const [user, setUser] = useState<User | null>(auth.currentUser);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => setUser(u));
+    return () => unsub();
+  }, []);
+
+  const breadcrumb = useMemo(() => getBreadcrumb(pathname), [pathname]);
+
+  const initials = useMemo(() => {
+    const email = user?.email ?? "";
+    const base = email.trim().slice(0, 2).toUpperCase();
+    return base || "AQ";
+  }, [user]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur">
-      <div className="mx-auto w-full max-w-[1200px] px-4 sm:px-6 lg:px-8 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            {/* Botão menu mobile */}
-            <button
-              type="button"
-              onClick={onOpenMenu}
-              className="md:hidden inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900"
-              aria-label="Abrir menu"
-            >
-              ☰
-            </button>
+    <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200/70">
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-4">
+        {/* Left */}
+        <div className="flex items-center gap-3 min-w-0">
+          {/* Botão menu (mobile/tablet) */}
+          <button
+            type="button"
+            onClick={onMenuClick}
+            className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg"
+            aria-label="Abrir menu"
+          >
+            ☰
+          </button>
 
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-slate-500">
-                Área do Aluno
-              </div>
-              <div className="text-lg sm:text-xl font-black text-slate-900 truncate">
-                {title}
-              </div>
+          <div className="min-w-0">
+            <div className="text-xs text-slate-500 font-semibold">
+              Área do Aluno
+            </div>
+            <div className="text-lg font-black text-slate-900 truncate">
+              {breadcrumb}
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-3">
-            {userEmail ? (
-              <div className="hidden sm:block text-sm text-slate-600 truncate max-w-[260px]">
-                {userEmail}
-              </div>
-            ) : null}
+        {/* Right */}
+        <div className="flex items-center gap-4">
+          <div className="hidden sm:block text-sm text-slate-600 truncate max-w-[220px]">
+            {user?.email ?? ""}
+          </div>
 
-            <div className="h-11 w-11 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-extrabold shadow">
-              {initials}
-            </div>
+          <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold shadow-lg">
+            {initials}
           </div>
         </div>
       </div>
