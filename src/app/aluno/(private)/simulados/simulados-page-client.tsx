@@ -15,7 +15,6 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -24,13 +23,13 @@ function cn(...xs: Array<string | false | null | undefined>) {
 type SessionDoc = {
   id: string;
   title?: string;
+  titleDisplay?: string; // ✅ novo (melhor para mostrar)
   status?: "in_progress" | "completed" | string;
   totalQuestions?: number;
   answeredCount?: number;
   correctCount?: number;
   scorePercent?: number;
   updatedAt?: any;
-  attemptId?: string;
 };
 
 function formatDate(ts: any) {
@@ -49,25 +48,28 @@ function formatDate(ts: any) {
   }
 }
 
-function normalizeTitle(raw?: string) {
-  const titleRaw = (raw ?? "").trim();
+function cleanTitle(raw?: string) {
+  const titleRaw = String(raw ?? "").trim();
   if (!titleRaw) return { title: "Simulado", subtitle: "" };
 
+  // Preferimos remover Todos/Todas do que vem depois do "•"
   const parts = titleRaw
     .split("•")
     .map((p) => p.trim())
-    .filter(Boolean)
-    .filter((p) => !["todos", "todas", "todo", "toda"].includes(p.toLowerCase()));
+    .filter(Boolean);
 
-  // remove duplicados
-  const uniq: string[] = [];
-  for (const p of parts) {
-    if (!uniq.some((u) => u.toLowerCase() === p.toLowerCase())) uniq.push(p);
-  }
+  const main = parts[0] || "Simulado";
+  const rest = parts
+    .slice(1)
+    .filter((p) => {
+      const t = p.toLowerCase();
+      return t !== "todos" && t !== "todas";
+    });
 
-  const title = uniq[0] || "Simulado";
-  const subtitle = uniq.slice(1).join(" • ");
-  return { title, subtitle };
+  return {
+    title: main,
+    subtitle: rest.join(" • "),
+  };
 }
 
 export default function SimuladosPageClient() {
@@ -140,8 +142,10 @@ export default function SimuladosPageClient() {
             <div className="text-xs font-semibold text-slate-500">Meus</div>
             <div className="text-2xl font-black text-slate-900">Simulados</div>
 
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Badge variant="neutral">{inProgressCount} em andamento</Badge>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
+                {inProgressCount} em andamento
+              </span>
               <span className="text-xs text-slate-500">
                 Atualize recarregando a página.
               </span>
@@ -159,11 +163,11 @@ export default function SimuladosPageClient() {
         </CardHeader>
       </Card>
 
-      {/* Estados */}
+      {/* Estado */}
       {err ? (
         <Card>
           <CardBody>
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 font-semibold">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
               {err}
             </div>
             <div className="mt-3">
@@ -199,7 +203,12 @@ export default function SimuladosPageClient() {
       {/* Lista */}
       <div className="grid gap-3">
         {sessions.map((s) => {
-          const { title, subtitle } = normalizeTitle(s.title);
+          // ✅ melhor título (se existir)
+          const display =
+            String(s.titleDisplay ?? "").trim() ||
+            String(s.title ?? "").trim();
+
+          const { title, subtitle } = cleanTitle(display);
 
           const total = Number(s.totalQuestions ?? 0) || 0;
           const answered = Number(s.answeredCount ?? 0) || 0;
@@ -214,77 +223,81 @@ export default function SimuladosPageClient() {
 
           const status = s.status || "in_progress";
           const isCompleted = status === "completed";
+
           const progressPct =
             total > 0 ? Math.min(100, Math.round((answered / total) * 100)) : 0;
 
           return (
-            <Card key={s.id} className="overflow-hidden">
-              {/* ✅ padding aumentado no mobile pra não encostar na borda */}
-              <CardBody className="p-6 sm:p-7">
-                {/* Top row */}
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="font-black text-slate-900 truncate">
-                      {title}
-                    </div>
-                    {subtitle ? (
-                      <div className="text-xs text-slate-500 mt-1 truncate">
-                        {subtitle}
+            <Card key={s.id}>
+              {/* ✅ padding maior no mobile + alinhamento pra não “encostar” na borda */}
+              <CardBody className="p-6 sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  {/* Left */}
+                  <div className="min-w-0 w-full">
+                    {/* ✅ titulo + badge com “respiro” */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-black text-slate-900 truncate">
+                          {title}
+                        </div>
+                        {subtitle ? (
+                          <div className="text-xs text-slate-500 truncate mt-1">
+                            {subtitle}
+                          </div>
+                        ) : null}
                       </div>
-                    ) : null}
+
+                      <span
+                        className={cn(
+                          "shrink-0 text-[11px] font-bold px-3 py-1 rounded-full border",
+                          isCompleted
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                            : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                        )}
+                      >
+                        {isCompleted ? "Concluído" : "Em andamento"}
+                      </span>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                        Atualizado: <b>{formatDate(s.updatedAt)}</b>
+                      </span>
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                        Progresso: <b>{answered}/{total || "—"}</b>
+                      </span>
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                        Acertos: <b>{correct}</b>
+                      </span>
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                        Nota: <b>{percent}%</b>
+                      </span>
+                    </div>
+
+                    <div className="mt-4 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-slate-900 transition-all"
+                        style={{ width: `${progressPct}%` }}
+                      />
+                    </div>
                   </div>
 
-                  <span
-                    className={cn(
-                      "shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border",
-                      isCompleted
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                  {/* Actions */}
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    {!isCompleted ? (
+                      <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                        Retomar
+                      </Button>
+                    ) : (
+                      <Button onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
+                        Resultado
+                      </Button>
                     )}
-                  >
-                    {isCompleted ? "Concluído" : "Em andamento"}
-                  </span>
-                </div>
 
-                {/* Pills */}
-                <div className="mt-4 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
-                    Atualizado: <b>{formatDate(s.updatedAt)}</b>
-                  </span>
-                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
-                    Progresso: <b>{answered}/{total || "—"}</b>
-                  </span>
-                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
-                    Acertos: <b>{correct}</b>
-                  </span>
-                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
-                    Nota: <b>{percent}%</b>
-                  </span>
-                </div>
-
-                {/* Bar */}
-                <div className="mt-4 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-slate-900 transition-all"
-                    style={{ width: `${progressPct}%` }}
-                  />
-                </div>
-
-                {/* Actions */}
-                <div className="mt-5 flex flex-wrap gap-2">
-                  {!isCompleted ? (
-                    <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
-                      Retomar
+                    <Button variant="secondary" onClick={() => onDelete(s.id)}>
+                      Excluir
                     </Button>
-                  ) : (
-                    <Button onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
-                      Resultado
-                    </Button>
-                  )}
-
-                  <Button variant="secondary" onClick={() => onDelete(s.id)}>
-                    Excluir
-                  </Button>
+                  </div>
                 </div>
               </CardBody>
             </Card>
