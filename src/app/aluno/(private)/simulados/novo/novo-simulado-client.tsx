@@ -11,6 +11,7 @@ import {
   serverTimestamp,
   orderBy,
   limit,
+  QueryConstraint,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
@@ -43,12 +44,6 @@ function buildSimuladoTitle({
   niveisLabel: string;
   temasLabel: string;
 }) {
-  // ✅ título limpo (não coloca “Todos/Todas” e não repete)
-  // ex:
-  // "Simulado" (sem filtros)
-  // "Simulado • TEA, TSA"
-  // "Simulado • TEA • R2"
-  // "Simulado • TEA • R2 • Bloqueios Periféricos"
   const parts = ["Simulado"];
 
   const norm = (s: string) => s.trim().toLowerCase();
@@ -65,13 +60,45 @@ function buildSimuladoTitle({
   addIfValid(niveisLabel);
   addIfValid(temasLabel);
 
-  // remove duplicados
   const uniq: string[] = [];
   for (const p of parts) {
     if (!uniq.some((u) => u.toLowerCase() === p.toLowerCase())) uniq.push(p);
   }
 
   return uniq.join(" • ");
+}
+
+function shuffle<T>(arr: T[]) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function asArray(v: any): string[] {
+  if (Array.isArray(v)) return v.map((x) => String(x));
+  if (typeof v === "string" && v.trim()) return [v.trim()];
+  return [];
+}
+
+// tenta ler campo em vários nomes possíveis
+function readAnyStringArray(d: any, keys: string[]) {
+  for (const k of keys) {
+    const v = d?.[k];
+    const arr = asArray(v);
+    if (arr.length) return arr;
+  }
+  return [];
+}
+
+function readAnyString(d: any, keys: string[]) {
+  for (const k of keys) {
+    const v = d?.[k];
+    if (typeof v === "string" && v.trim()) return v.trim();
+  }
+  return "";
 }
 
 export default function NovoSimuladoClient() {
@@ -87,11 +114,13 @@ export default function NovoSimuladoClient() {
   const [selectedTemas, setSelectedTemas] = useState<string[]>([]);
   const [qtd, setQtd] = useState<number>(10);
 
+  const [creating, setCreating] = useState(false);
+  const [err, setErr] = useState<string>("");
+
   useEffect(() => {
     const run = async () => {
       setLoading(true);
       try {
-        // Provas ativas ordenadas
         const pQ = query(
           collection(db, "provas"),
           where("ativo", "==", true),
@@ -100,7 +129,6 @@ export default function NovoSimuladoClient() {
         const pSnap = await getDocs(pQ);
         setProvas(pSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
 
-        // Temas
         const tSnap = await getDocs(query(collection(db, "temas"), limit(200)));
         const names = tSnap.docs
           .map((d) => (d.data() as any)?.nome)
@@ -118,7 +146,7 @@ export default function NovoSimuladoClient() {
   const labels = useMemo(() => {
     const provasLabel =
       selectedProvas.length === 0
-        ? "" // ✅ sem “Todas”
+        ? ""
         : selectedProvas
             .map((id) => {
               const p = provas.find((x) => x.id === id);
@@ -135,31 +163,143 @@ export default function NovoSimuladoClient() {
     return { provasLabel, niveisLabel, temasLabel };
   }, [selectedProvas, selectedNiveis, selectedTemas, provas]);
 
-  const title = useMemo(() => {
-    return buildSimuladoTitle(labels);
-  }, [labels]);
+  const title = useMemo(() => buildSimuladoTitle(labels), [labels]);
+
+  /**
+   * ✅ Busca IDs de questões conforme filtros.
+   *
+   * Estratégia:
+   * 1) tenta uma query “boa” com where() (se seus campos existirem)
+   * 2) se falhar (índice/campo), faz fallback: pega lote e filtra no client
+   */
+  async function fetchQuestionIds(): Promise<string[]> {
+    // ajuste o nome da coleção se necessário:
+    const QUESTIONS_COL = "questoes";
+
+    // limites para não estourar no fallback
+    const FALLBACK_FETCH_LIMIT = 1500;
+
+    // 1) tentativa de query (se sua modelagem suportar)
+    try {
+      const constraints: QueryConstraint[] = [];
+
+      // prova: tenta provaId IN
+      if (selectedProvas.length > 0 && selectedProvas.length <= 10) {
+        constraints.push(where("provaId", "in", selectedProvas));
+      }
+
+      // nível: tenta nivel IN
+      if (selectedNiveis.length > 0 && selectedNiveis.length <= 10) {
+        constraints.push(where("nivel", "in", selectedNiveis));
+      }
+
+      // temas: tenta array-contains-any
+      if (selectedTemas.length > 0 && selectedTemas.length <= 10) {
+        constraints.push(where("temas", "array-contains-any", selectedTemas));
+      }
+
+      // se não tem constraints, não faz query “vazia” aqui (vai pro fallback)
+      if (constraints.length > 0) {
+        const qy = query(collection(db, QUESTIONS_COL), ...constraints, limit(FALLBACK_FETCH_LIMIT));
+        const snap = await getDocs(qy);
+        const ids = snap.docs.map((d) => d.id).filter(Boolean);
+
+        if (ids.length > 0) return ids;
+        // se deu 0, ainda pode ser porque seus campos não batem — tenta fallback
+      }
+    } catch (e) {
+      // ignora e cai pro fallback
+      console.warn("Query direta falhou, usando fallback de filtro client-side.", e);
+    }
+
+    // 2) fallback seguro: carrega lote e filtra por campos “possíveis”
+    const snap = await getDocs(query(collection(db, QUESTIONS_COL), limit(FALLBACK_FETCH_LIMIT)));
+
+    const out: string[] = [];
+
+    snap.forEach((docSnap) => {
+      const d = docSnap.data() as any;
+
+      // tenta entender como sua questão guarda prova/nivel/tema
+      const provaCandidates = [
+        readAnyString(d, ["provaId", "prova", "prova_id"]),
+        ...readAnyStringArray(d, ["provas", "provasIds", "provas_ids", "provaIds"]),
+      ].filter(Boolean);
+
+      const nivelCandidates = [
+        readAnyString(d, ["nivel", "especializacao", "nivelId", "nivel_id"]),
+        ...readAnyStringArray(d, ["niveis", "especializacoes"]),
+      ].filter(Boolean);
+
+      const temaCandidates = [
+        readAnyString(d, ["tema", "temaId", "tema_id"]),
+        ...readAnyStringArray(d, ["temas", "temasIds", "temas_ids", "temaIds"]),
+      ].filter(Boolean);
+
+      const matchProva =
+        selectedProvas.length === 0 ||
+        provaCandidates.some((p) => selectedProvas.includes(p));
+
+      const matchNivel =
+        selectedNiveis.length === 0 ||
+        nivelCandidates.some((n) => selectedNiveis.includes(n));
+
+      const matchTema =
+        selectedTemas.length === 0 ||
+        temaCandidates.some((t) => selectedTemas.includes(t));
+
+      if (matchProva && matchNivel && matchTema) out.push(docSnap.id);
+    });
+
+    return out;
+  }
 
   const createSimulado = async () => {
     if (!user) return;
 
-    const sessionRef = await addDoc(collection(db, "users", user.uid, "sessions"), {
-      title,
-      status: "in_progress",
-      filters: {
-        provas: selectedProvas,
-        niveis: selectedNiveis,
-        temas: selectedTemas,
-      },
-      totalQuestions: qtd,
-      answeredCount: 0,
-      correctCount: 0,
-      wrongCount: 0,
-      updatedAt: serverTimestamp(),
-      createdAt: serverTimestamp(),
-      // questionIds: [...]  (vamos preencher no passo do Quiz)
-    });
+    setErr("");
+    setCreating(true);
 
-    router.push(`/aluno/simulados/${sessionRef.id}`);
+    try {
+      const pool = await fetchQuestionIds();
+
+      if (!pool.length) {
+        setErr("Nenhuma questão encontrada para os filtros selecionados.");
+        return;
+      }
+
+      // embaralha e pega qtd
+      const picked = shuffle(pool).slice(0, qtd);
+
+      if (!picked.length) {
+        setErr("Não foi possível gerar o simulado. Tente novamente.");
+        return;
+      }
+
+      const sessionRef = await addDoc(collection(db, "users", user.uid, "sessions"), {
+        title,
+        status: "in_progress",
+        filters: {
+          provas: selectedProvas,
+          niveis: selectedNiveis,
+          temas: selectedTemas,
+        },
+        totalQuestions: picked.length,
+        answeredCount: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        questionIds: picked, // ✅ agora vai preenchido
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+
+      router.push(`/aluno/simulados/${sessionRef.id}`);
+    } catch (e: any) {
+      console.error(e);
+      setErr(e?.message || "Falha ao criar simulado.");
+    } finally {
+      setCreating(false);
+    }
   };
 
   const Chip = ({
@@ -172,23 +312,21 @@ export default function NovoSimuladoClient() {
     children: React.ReactNode;
     onClick?: () => void;
     title?: string;
-  }) => {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        className={cn(
-          "max-w-full truncate px-4 py-2 rounded-full text-sm font-semibold border transition",
-          active
-            ? "bg-slate-900 text-white border-slate-900"
-            : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50"
-        )}
-      >
-        {children}
-      </button>
-    );
-  };
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={cn(
+        "max-w-full truncate px-4 py-2 rounded-full text-sm font-semibold border transition",
+        active
+          ? "bg-slate-900 text-white border-slate-900"
+          : "bg-white text-slate-800 border-slate-200 hover:bg-slate-50"
+      )}
+    >
+      {children}
+    </button>
+  );
 
   const QtyButton = ({ n }: { n: number }) => {
     const active = qtd === n;
@@ -214,6 +352,16 @@ export default function NovoSimuladoClient() {
           </div>
         </CardHeader>
       </Card>
+
+      {err ? (
+        <Card>
+          <CardBody>
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 font-semibold">
+              {err}
+            </div>
+          </CardBody>
+        </Card>
+      ) : null}
 
       {loading ? (
         <Card>
@@ -332,16 +480,16 @@ export default function NovoSimuladoClient() {
                   type="button"
                   variant="secondary"
                   onClick={() => router.push("/aluno/simulados")}
+                  disabled={creating}
                 >
                   Voltar
                 </Button>
 
-                <Button type="button" onClick={createSimulado}>
-                  Criar simulado
+                <Button type="button" onClick={createSimulado} disabled={creating}>
+                  {creating ? "Criando…" : "Criar simulado"}
                 </Button>
               </div>
 
-              {/* ✅ agora não mostra “Todos/Todas…” */}
               <div className="mt-3 text-xs text-slate-500">
                 <span className="font-semibold text-slate-700">Título:</span>{" "}
                 <span className="break-words">{title}</span>
