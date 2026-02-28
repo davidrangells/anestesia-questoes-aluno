@@ -100,21 +100,9 @@ export default function AlunoSidebar({
       <nav className="px-4 py-4 flex flex-col gap-2">
         <Item href="/aluno" label="Dashboard" icon="🏠" onNavigate={onNavigate} />
         <Item
-          href="/aluno/provas"
-          label="Provas"
-          icon="📝"
-          onNavigate={onNavigate}
-        />
-        <Item
           href="/aluno/simulados"
           label="Simulados"
           icon="🧠"
-          onNavigate={onNavigate}
-        />
-        <Item
-          href="/aluno/ranking"
-          label="Ranking"
-          icon="🏆"
           onNavigate={onNavigate}
         />
         <Item
