@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/components/ui/cn";
 
 type SessionDoc = {
   id: string;
