@@ -38,6 +38,29 @@ function tsToMs(v: any): number {
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
+/**
+ * Remove "Todos/Todas" do título e separa em title/subtitle.
+ * Ex: "Simulado • TSA • Todos • Todos" -> title="Simulado", subtitle="TSA"
+ */
+function normalizeTitle(raw?: string) {
+  const titleRaw = (raw ?? "").trim();
+  if (!titleRaw) return { title: "Simulado", subtitle: "" };
+
+  const parts = titleRaw
+    .split("•")
+    .map((p) => p.trim())
+    .filter(Boolean);
+
+  const cleaned = parts.filter((p) => {
+    const s = p.toLowerCase();
+    return s !== "todos" && s !== "todas" && s !== "todo" && s !== "toda";
+  });
+
+  const title = cleaned[0] || "Simulado";
+  const subtitle = cleaned.slice(1).join(" • ");
+  return { title, subtitle };
+}
+
 export default function DashboardClient() {
   const router = useRouter();
 
@@ -170,11 +193,14 @@ export default function DashboardClient() {
   const resolvidasLabel = stats.respondidas > 0 ? String(stats.respondidas) : "—";
   const aproveitamentoLabel = stats.respondidas > 0 ? formatPct(stats.aproveitamentoPct) : "—";
 
-  const lastTitle = lastSession?.title?.trim() || "Simulado";
+  const { title: lastTitleBase, subtitle: lastSubtitle } = normalizeTitle(lastSession?.title);
+  const lastTitle = lastSubtitle ? `${lastTitleBase} • ${lastSubtitle}` : lastTitleBase;
+
   const lastTotal = safeNum(lastSession?.totalQuestions);
   const lastAnswered = safeNum(lastSession?.answeredCount);
   const lastCorrect = safeNum(lastSession?.correctCount);
   const lastStatus = lastSession?.status ?? "in_progress";
+
   const lastScore =
     lastStatus === "completed"
       ? formatPct(safeNum(lastSession?.scorePercent, 0))
@@ -216,12 +242,9 @@ export default function DashboardClient() {
                     / <span className="font-semibold text-slate-900">{lastTotal}</span>
                   </>
                 ) : null}
-                {lastCorrect ? (
-                  <>
-                    {" "}
-                    • Acertos: <span className="font-semibold text-slate-900">{lastCorrect}</span>
-                  </>
-                ) : null}
+                {/* mostra acertos mesmo se for 0 (em vez de sumir) */}
+                {" • "}
+                Acertos: <span className="font-semibold text-slate-900">{lastCorrect}</span>
               </div>
             ) : (
               <div className="mt-2 text-sm text-slate-600">
@@ -250,10 +273,7 @@ export default function DashboardClient() {
                   </Button>
                 )}
 
-                <Button
-                  variant="secondary"
-                  onClick={() => router.push("/aluno/simulados")}
-                >
+                <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
                   Ver todos
                 </Button>
               </div>
@@ -286,8 +306,9 @@ export default function DashboardClient() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-3">
             {recentTop3.map((s) => {
-              const titleRaw = s.title?.trim() || "Simulado";
-              const title = titleRaw.split("•")[0].trim() || "Simulado"; // pega só antes do primeiro •
+              const norm = normalizeTitle(s.title);
+              const title = norm.subtitle ? `${norm.title} • ${norm.subtitle}` : norm.title;
+
               const total = safeNum(s.totalQuestions);
               const answered = safeNum(s.answeredCount);
               const correct = safeNum(s.correctCount);
@@ -316,7 +337,9 @@ export default function DashboardClient() {
                         <div className="mt-1 font-black text-slate-900 truncate">{title}</div>
                       </div>
 
-                      <span className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${badgeCls}`}>
+                      <span
+                        className={`shrink-0 rounded-full border px-3 py-1 text-xs font-bold ${badgeCls}`}
+                      >
                         {badgeText}
                       </span>
                     </div>
@@ -331,7 +354,9 @@ export default function DashboardClient() {
                         </div>
                       </div>
 
-                      <div className="mt-1 text-2xl font-black text-slate-900">{formatPct(pct)}</div>
+                      <div className="mt-1 text-2xl font-black text-slate-900">
+                        {formatPct(pct)}
+                      </div>
 
                       <div className="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
@@ -341,13 +366,8 @@ export default function DashboardClient() {
                       </div>
 
                       <div className="mt-2 text-xs text-slate-600">
-                        {correct ? (
-                          <>
-                            Acertos: <span className="font-semibold text-slate-900">{correct}</span>
-                          </>
-                        ) : (
-                          "—"
-                        )}
+                        Acertos:{" "}
+                        <span className="font-semibold text-slate-900">{correct}</span>
                       </div>
                     </div>
 
