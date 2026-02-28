@@ -1,46 +1,51 @@
+"use client";
+
 import * as React from "react";
 
-function cn(...classes: Array<string | false | null | undefined>) {
-  return classes.filter(Boolean).join(" ");
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
 }
 
-export type ButtonVariant = "primary" | "secondary" | "outline" | "ghost" | "danger";
-export type ButtonSize = "sm" | "md" | "lg";
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Size = "sm" | "md" | "lg";
 
-type Props = React.ButtonHTMLAttributes<HTMLButtonElement> & {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
+export interface ButtonProps
+  extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: Variant;
+  size?: Size;
+}
+
+const base =
+  "inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition outline-none focus:ring-2 focus:ring-slate-900/10 disabled:opacity-50 disabled:cursor-not-allowed";
+
+const variants: Record<Variant, string> = {
+  primary:
+    "bg-slate-900 text-white shadow-[0_14px_40px_rgba(2,6,23,0.18)] hover:bg-slate-800",
+  secondary:
+    "bg-white text-slate-900 border border-slate-200 shadow-sm hover:bg-slate-50",
+  outline:
+    "bg-transparent text-slate-900 border border-slate-200 hover:bg-slate-50",
+  ghost: "bg-transparent text-slate-700 hover:bg-slate-100",
+  danger:
+    "bg-rose-600 text-white shadow-[0_14px_40px_rgba(244,63,94,0.25)] hover:bg-rose-500",
 };
 
-export const Button = React.forwardRef<HTMLButtonElement, Props>(function Button(
-  { className, variant = "primary", size = "md", disabled, ...props },
-  ref
-) {
-  const base =
-    "inline-flex items-center justify-center gap-2 rounded-2xl font-semibold transition " +
-    "focus:outline-none focus:ring-4 focus:ring-slate-200 " +
-    "disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none";
+const sizes: Record<Size, string> = {
+  sm: "h-10 px-4 text-sm",
+  md: "h-12 px-5 text-sm",
+  lg: "h-14 px-6 text-base",
+};
 
-  const variants: Record<ButtonVariant, string> = {
-    primary: "bg-slate-900 text-white hover:bg-slate-800",
-    secondary: "bg-white text-slate-900 border border-slate-200 hover:bg-slate-50",
-    outline: "bg-transparent text-slate-900 border border-slate-300 hover:bg-slate-50",
-    ghost: "bg-transparent text-slate-900 hover:bg-slate-100",
-    danger: "bg-red-600 text-white hover:bg-red-500",
-  };
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "primary", size = "md", ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        className={cn(base, variants[variant], sizes[size], className)}
+        {...props}
+      />
+    );
+  }
+);
 
-  const sizes: Record<ButtonSize, string> = {
-    sm: "px-3 py-2 text-sm",
-    md: "px-5 py-3 text-sm",
-    lg: "px-6 py-4 text-base",
-  };
-
-  return (
-    <button
-      ref={ref}
-      disabled={disabled}
-      className={cn(base, variants[variant], sizes[size], className)}
-      {...props}
-    />
-  );
-});
+Button.displayName = "Button";

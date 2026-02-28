@@ -1,6 +1,10 @@
-// src/components/ui/Badge.tsx
+"use client";
+
 import * as React from "react";
-import { cn } from "./cn";
+
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
 
 type Variant = "neutral" | "success" | "warning" | "danger" | "info";
 
@@ -33,3 +37,5 @@ export function Badge({
     </span>
   );
 }
+
+export default Badge;

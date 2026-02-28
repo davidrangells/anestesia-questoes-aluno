@@ -30,8 +30,6 @@ type SessionDoc = {
   correctCount?: number;
   scorePercent?: number;
   updatedAt?: any;
-
-  // caso tenha attemptId (alguns docs antigos)
   attemptId?: string;
 };
 
@@ -51,11 +49,6 @@ function formatDate(ts: any) {
   }
 }
 
-/**
- * Corrige o "Simulado • Todas • Todos • Todos"
- * - Mantém o primeiro item como title
- * - Remove tokens "Todos/Todas" do subtitle
- */
 function normalizeTitle(raw?: string) {
   const titleRaw = (raw ?? "").trim();
   if (!titleRaw) return { title: "Simulado", subtitle: "" };
@@ -63,18 +56,18 @@ function normalizeTitle(raw?: string) {
   const parts = titleRaw
     .split("•")
     .map((p) => p.trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter((p) => !["todos", "todas", "todo", "toda"].includes(p.toLowerCase()));
 
-  const title = parts[0] || "Simulado";
+  // remove duplicados
+  const uniq: string[] = [];
+  for (const p of parts) {
+    if (!uniq.some((u) => u.toLowerCase() === p.toLowerCase())) uniq.push(p);
+  }
 
-  const cleaned = parts
-    .slice(1)
-    .filter((p) => !/^tod[oa]s?$/i.test(p)); // remove: Todo, Todos, Toda, Todas
-
-  return {
-    title,
-    subtitle: cleaned.join(" • "),
-  };
+  const title = uniq[0] || "Simulado";
+  const subtitle = uniq.slice(1).join(" • ");
+  return { title, subtitle };
 }
 
 export default function SimuladosPageClient() {
@@ -140,15 +133,15 @@ export default function SimuladosPageClient() {
 
   return (
     <div className="space-y-4">
-      {/* Header compacto */}
+      {/* Header */}
       <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="text-xs font-semibold text-slate-500">Meus</div>
             <div className="text-2xl font-black text-slate-900">Simulados</div>
 
-            <div className="mt-2 flex flex-wrap items-center gap-2">
-              <Badge>{inProgressCount} em andamento</Badge>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Badge variant="neutral">{inProgressCount} em andamento</Badge>
               <span className="text-xs text-slate-500">
                 Atualize recarregando a página.
               </span>
@@ -166,11 +159,11 @@ export default function SimuladosPageClient() {
         </CardHeader>
       </Card>
 
-      {/* Estado de erro */}
+      {/* Estados */}
       {err ? (
         <Card>
           <CardBody>
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 font-semibold">
               {err}
             </div>
             <div className="mt-3">
@@ -203,7 +196,7 @@ export default function SimuladosPageClient() {
         </Card>
       ) : null}
 
-      {/* Lista compacta */}
+      {/* Lista */}
       <div className="grid gap-3">
         {sessions.map((s) => {
           const { title, subtitle } = normalizeTitle(s.title);
@@ -221,29 +214,29 @@ export default function SimuladosPageClient() {
 
           const status = s.status || "in_progress";
           const isCompleted = status === "completed";
-
           const progressPct =
             total > 0 ? Math.min(100, Math.round((answered / total) * 100)) : 0;
 
           return (
-
-          <Card key={s.id} className="overflow-hidden">
-            <CardBody className="p-5 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-              
-              {/* Left info */}
-              <div className="min-w-0 w-full">
-                
-                {/* Título + Badge */}
-                <div className="flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
+            <Card key={s.id} className="overflow-hidden">
+              {/* ✅ padding aumentado no mobile pra não encostar na borda */}
+              <CardBody className="p-6 sm:p-7">
+                {/* Top row */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
                     <div className="font-black text-slate-900 truncate">
                       {title}
                     </div>
+                    {subtitle ? (
+                      <div className="text-xs text-slate-500 mt-1 truncate">
+                        {subtitle}
+                      </div>
+                    ) : null}
                   </div>
 
                   <span
                     className={cn(
-                      "shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap",
+                      "shrink-0 text-[11px] font-bold px-3 py-1.5 rounded-full border",
                       isCompleted
                         ? "bg-emerald-50 text-emerald-700 border-emerald-200"
                         : "bg-indigo-50 text-indigo-700 border-indigo-200"
@@ -253,62 +246,52 @@ export default function SimuladosPageClient() {
                   </span>
                 </div>
 
-                {subtitle ? (
-                  <div className="text-xs text-slate-500 truncate mt-1">
-                    {subtitle}
-                  </div>
-                ) : null}
-
-                <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                {/* Pills */}
+                <div className="mt-4 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
                     Atualizado: <b>{formatDate(s.updatedAt)}</b>
                   </span>
-                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
                     Progresso: <b>{answered}/{total || "—"}</b>
                   </span>
-                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
                     Acertos: <b>{correct}</b>
                   </span>
-                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                  <span className="rounded-full border bg-white px-3 py-1.5 text-slate-700">
                     Nota: <b>{percent}%</b>
                   </span>
                 </div>
 
-                {/* Barra */}
+                {/* Bar */}
                 <div className="mt-4 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-slate-900 transition-all"
                     style={{ width: `${progressPct}%` }}
                   />
                 </div>
-              </div>
 
-              {/* Actions */}
-              <div className="flex flex-wrap gap-2 sm:justify-end">
-                {!isCompleted ? (
-                  <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
-                    Retomar
+                {/* Actions */}
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {!isCompleted ? (
+                    <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                      Retomar
+                    </Button>
+                  ) : (
+                    <Button onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
+                      Resultado
+                    </Button>
+                  )}
+
+                  <Button variant="secondary" onClick={() => onDelete(s.id)}>
+                    Excluir
                   </Button>
-                ) : (
-                  <Button
-                    onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}
-                  >
-                    Resultado
-                  </Button>
-                )}
-
-                <Button variant="secondary" onClick={() => onDelete(s.id)}>
-                  Excluir
-                </Button>
-              </div>
-            </CardBody>
-          </Card>            
-
+                </div>
+              </CardBody>
+            </Card>
           );
         })}
       </div>
 
-      {/* Link fallback */}
       <div className="text-xs text-slate-400">
         Se algum botão não abrir, acesse:{" "}
         <Link className="underline" href="/aluno/simulados/novo">
