@@ -226,77 +226,84 @@ export default function SimuladosPageClient() {
             total > 0 ? Math.min(100, Math.round((answered / total) * 100)) : 0;
 
           return (
-            <Card key={s.id}>
-              <CardBody className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                {/* Left info */}
-                <div className="min-w-0 w-full">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="font-black text-slate-900 truncate max-w-[100%]">
+
+          <Card key={s.id} className="overflow-hidden">
+            <CardBody className="p-5 sm:p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              
+              {/* Left info */}
+              <div className="min-w-0 w-full">
+                
+                {/* Título + Badge */}
+                <div className="flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-black text-slate-900 truncate">
                       {title}
                     </div>
-
-                    <span
-                      className={cn(
-                        "text-[11px] font-bold px-2 py-1 rounded-full border",
-                        isCompleted
-                          ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
-                      )}
-                    >
-                      {isCompleted ? "Concluído" : "Em andamento"}
-                    </span>
                   </div>
 
-                  {subtitle ? (
-                    <div className="text-xs text-slate-500 truncate mt-1">
-                      {subtitle}
-                    </div>
-                  ) : null}
-
-                  <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                    <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
-                      Atualizado: <b>{formatDate(s.updatedAt)}</b>
-                    </span>
-                    <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
-                      Progresso: <b>{answered}/{total || "—"}</b>
-                    </span>
-                    <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
-                      Acertos: <b>{correct}</b>
-                    </span>
-                    <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
-                      Nota: <b>{percent}%</b>
-                    </span>
-                  </div>
-
-                  {/* barra de progresso compacta */}
-                  <div className="mt-3 h-2 w-full max-w-[520px] rounded-full bg-slate-100 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-slate-900 transition-all"
-                      style={{ width: `${progressPct}%` }}
-                    />
-                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 text-[11px] font-bold px-2.5 py-1 rounded-full border whitespace-nowrap",
+                      isCompleted
+                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                    )}
+                  >
+                    {isCompleted ? "Concluído" : "Em andamento"}
+                  </span>
                 </div>
 
-                {/* Actions */}
-                <div className="flex flex-wrap gap-2 sm:justify-end">
-                  {!isCompleted ? (
-                    <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
-                      Retomar
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}
-                    >
-                      Resultado
-                    </Button>
-                  )}
+                {subtitle ? (
+                  <div className="text-xs text-slate-500 truncate mt-1">
+                    {subtitle}
+                  </div>
+                ) : null}
 
-                  <Button variant="secondary" onClick={() => onDelete(s.id)}>
-                    Excluir
+                <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                    Atualizado: <b>{formatDate(s.updatedAt)}</b>
+                  </span>
+                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                    Progresso: <b>{answered}/{total || "—"}</b>
+                  </span>
+                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                    Acertos: <b>{correct}</b>
+                  </span>
+                  <span className="rounded-full border bg-white px-2 py-1 text-slate-700">
+                    Nota: <b>{percent}%</b>
+                  </span>
+                </div>
+
+                {/* Barra */}
+                <div className="mt-4 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-slate-900 transition-all"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-wrap gap-2 sm:justify-end">
+                {!isCompleted ? (
+                  <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                    Retomar
                   </Button>
-                </div>
-              </CardBody>
-            </Card>
+                ) : (
+                  <Button
+                    onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}
+                  >
+                    Resultado
+                  </Button>
+                )}
+
+                <Button variant="secondary" onClick={() => onDelete(s.id)}>
+                  Excluir
+                </Button>
+              </div>
+            </CardBody>
+          </Card>            
+
           );
         })}
       </div>
