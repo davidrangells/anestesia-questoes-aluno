@@ -48,7 +48,7 @@ function safeStr(v: unknown) {
 async function getQuestionById(questionId: string): Promise<QuestionDoc> {
   const ref = doc(db, "questionsBank", questionId);
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error("Questão não encontrada.");
+  if (!snap.exists()) throw new Error(`Questão não encontrada (${questionId}).`);
   return { id: snap.id, ...(snap.data() as any) };
 }
 
@@ -70,10 +70,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   const [isFinishing, setIsFinishing] = useState(false);
 
   const shouldShowFeedback = confirmed || isSubmitting;
-
   const isFirst = currentIndex <= 0;
 
-  // ✅ use totalQuestions/questionIds pra decidir “última”
   const totalFromSession = useMemo(() => {
     const tq = Number(session?.totalQuestions ?? 0) || 0;
     const ql = Array.isArray(session?.questionIds) ? session!.questionIds!.length : 0;
@@ -85,9 +83,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     return total > 0 ? currentIndex >= total - 1 : false;
   }, [currentIndex, totalFromSession, questions.length]);
 
-  const currentQuestion = useMemo(() => {
-    return questions[currentIndex] ?? null;
-  }, [questions, currentIndex]);
+  const currentQuestion = useMemo(() => questions[currentIndex] ?? null, [questions, currentIndex]);
 
   const statement = useMemo(() => {
     return (
@@ -100,12 +96,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   }, [currentQuestion]);
 
   const correctId = useMemo(() => {
-    return (
-      currentQuestion?.correctOptionId ||
-      currentQuestion?.correct ||
-      currentQuestion?.gabarito ||
-      null
-    );
+    return currentQuestion?.correctOptionId || currentQuestion?.correct || currentQuestion?.gabarito || null;
   }, [currentQuestion]);
 
   async function load() {
@@ -128,9 +119,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
       const questionIds = Array.isArray(sess.questionIds) ? sess.questionIds : [];
       if (!questionIds.length) {
-        throw new Error(
-          "Nenhuma questão foi carregada. Verifique se questionIds está preenchido na session."
-        );
+        throw new Error("Nenhuma questão foi carregada (questionIds vazio). Crie um novo simulado.");
       }
 
       const loaded = await Promise.all(questionIds.map((qid) => getQuestionById(qid)));
@@ -144,7 +133,6 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const idx = Number(sess.currentIndex ?? 0) || 0;
       setCurrentIndex(Math.min(Math.max(0, idx), Math.max(0, ordered.length - 1)));
 
-      // reseta estado da UI
       setSelectedOptionId(null);
       setConfirmed(false);
       setIsCorrect(null);
@@ -173,7 +161,6 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
   async function onConfirm() {
     if (!session || !currentQuestion || !selectedOptionId) return;
-
     const u = auth.currentUser;
     if (!u) return;
 
@@ -184,7 +171,6 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const correct = safeStr(correctId);
       const ok = !!(correct && chosen && correct === chosen);
 
-      // answersMap inline
       const nextAnsweredCount = Number(session.answeredCount ?? 0) + 1;
       const nextCorrectCount = Number(session.correctCount ?? 0) + (ok ? 1 : 0);
 
@@ -308,7 +294,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
   if (!session || !currentQuestion) return null;
 
-  const canFinalize = isLast; // ✅ sempre “Finalizar” na última
+  const canFinalize = isLast;
   const finalizeDisabled = !confirmed || isSubmitting || isFinishing;
 
   return (
@@ -371,11 +357,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
           {!confirmed ? (
             <div className="pt-3">
-              <Button
-                className="w-full"
-                disabled={!selectedOptionId || isSubmitting}
-                onClick={onConfirm}
-              >
+              <Button className="w-full" disabled={!selectedOptionId || isSubmitting} onClick={onConfirm}>
                 {isSubmitting ? "Confirmando…" : "Confirmar resposta"}
               </Button>
             </div>
@@ -395,13 +377,11 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
             </div>
           )}
 
-          {/* Footer */}
           <div className="pt-4 flex items-center justify-between gap-3">
             <Button variant="secondary" onClick={onPrev} disabled={isFirst}>
               ← Anterior
             </Button>
 
-            {/* ✅ sempre mostra “Finalizar” na última */}
             {canFinalize ? (
               <Button onClick={onFinish} disabled={finalizeDisabled}>
                 {isFinishing ? "Finalizando…" : "Finalizar →"}

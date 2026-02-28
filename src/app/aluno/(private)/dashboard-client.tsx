@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui/cn";
 
 type SessionDoc = {
   id: string;
@@ -19,6 +18,10 @@ type SessionDoc = {
   updatedAt?: any;
   title?: string;
 };
+
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
 
 function formatPct(v: number) {
   if (!Number.isFinite(v)) return "—";
@@ -37,24 +40,33 @@ function tsToMs(v: any): number {
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
 
-function cleanTitle(raw?: string) {
-  const titleRaw = (raw ?? "").trim();
-  if (!titleRaw) return { title: "Simulado", subtitle: "" };
+/**
+ * Remove "Todos/Todas" do título quando não há filtro.
+ * Ex:
+ *  "Simulado • Todas • Todos • Todos" -> "Simulado"
+ *  "Simulado • TSA • R1 • Todos" -> "Simulado • TSA • R1"
+ */
+function cleanSessionTitle(raw?: string) {
+  const base = (raw ?? "").trim();
+  if (!base) return "Simulado";
 
-  const parts = titleRaw
+  const parts = base
     .split("•")
     .map((p) => p.trim())
-    .filter(Boolean)
-    .filter((p) => !["todos", "todas", "todo", "toda"].includes(p.toLowerCase()));
+    .filter(Boolean);
 
-  const uniq: string[] = [];
-  for (const p of parts) {
-    if (!uniq.some((u) => u.toLowerCase() === p.toLowerCase())) uniq.push(p);
-  }
+  if (!parts.length) return "Simulado";
 
-  const title = uniq[0] || "Simulado";
-  const subtitle = uniq.slice(1).join(" • ");
-  return { title, subtitle };
+  const head = parts[0] || "Simulado";
+  const tail = parts
+    .slice(1)
+    .filter((p) => {
+      const t = p.toLowerCase();
+      return t !== "todos" && t !== "todas";
+    });
+
+  if (!tail.length) return head;
+  return `${head} • ${tail.join(" • ")}`;
 }
 
 export default function DashboardClient() {
@@ -136,6 +148,7 @@ export default function DashboardClient() {
           <div className="text-3xl font-black text-slate-900">Dashboard</div>
           <div className="text-sm text-slate-600 mt-1">Carregando seus dados…</div>
         </div>
+
         <div className="grid gap-4 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
             <div key={i} className="rounded-3xl border bg-white p-6 shadow-sm">
@@ -144,6 +157,12 @@ export default function DashboardClient() {
               <div className="mt-3 h-3 w-40 rounded-full bg-slate-200 animate-pulse" />
             </div>
           ))}
+        </div>
+
+        <div className="rounded-3xl border bg-white p-6 shadow-sm">
+          <div className="h-3 w-36 rounded-full bg-slate-200 animate-pulse" />
+          <div className="mt-4 h-10 w-72 rounded-full bg-slate-200 animate-pulse" />
+          <div className="mt-3 h-3 w-56 rounded-full bg-slate-200 animate-pulse" />
         </div>
       </div>
     );
@@ -161,6 +180,7 @@ export default function DashboardClient() {
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-700 font-semibold">
             {err}
           </div>
+
           <Button className="mt-4" onClick={load}>
             Tentar novamente
           </Button>
@@ -175,8 +195,7 @@ export default function DashboardClient() {
   const resolvidasLabel = stats.respondidas > 0 ? String(stats.respondidas) : "—";
   const aproveitamentoLabel = stats.respondidas > 0 ? formatPct(stats.aproveitamentoPct) : "—";
 
-  const { title: lastTitle } = cleanTitle(lastSession?.title);
-
+  const lastTitle = cleanSessionTitle(lastSession?.title);
   const lastTotal = safeNum(lastSession?.totalQuestions);
   const lastAnswered = safeNum(lastSession?.answeredCount);
   const lastCorrect = safeNum(lastSession?.correctCount);
@@ -204,7 +223,7 @@ export default function DashboardClient() {
 
       {/* Último simulado */}
       <Card>
-        <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="text-xs font-semibold text-slate-500">Último simulado</div>
             <div className="mt-1 text-xl font-black text-slate-900 truncate">{lastTitle}</div>
@@ -223,8 +242,10 @@ export default function DashboardClient() {
                     / <span className="font-semibold text-slate-900">{lastTotal}</span>
                   </>
                 ) : null}
-                {" "}
-                • Acertos: <span className="font-semibold text-slate-900">{lastCorrect}</span>
+                <>
+                  {" "}
+                  • Acertos: <span className="font-semibold text-slate-900">{lastCorrect}</span>
+                </>
               </div>
             ) : (
               <div className="mt-2 text-sm text-slate-600">
@@ -258,88 +279,33 @@ export default function DashboardClient() {
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => router.push("/aluno/simulados")}>
-                Ir para simulados
-              </Button>
+              <Button onClick={() => router.push("/aluno/simulados")}>Ir para simulados</Button>
             )}
           </div>
         </CardHeader>
       </Card>
 
-      {/* Cards pequenos */}
-      <div className="grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <div className="text-sm text-slate-500">Progresso</div>
-            <div className="mt-2 text-3xl font-black text-slate-900">
-              {stats.totalQuestoes > 0 ? formatPct(stats.progressoPct) : "—"}
-            </div>
-            <div className="mt-2 text-sm text-slate-600">
-              {progressoLabel} questões respondidas
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="h-3 w-full rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-slate-900 transition-all"
-                style={{ width: `${Math.min(100, Math.max(0, stats.progressoPct))}%` }}
-              />
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="text-sm text-slate-500">Questões resolvidas</div>
-            <div className="mt-2 text-3xl font-black text-slate-900">{resolvidasLabel}</div>
-            <div className="mt-2 text-sm text-slate-600">
-              Total de respostas confirmadas
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="rounded-2xl border bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-500">Acertos</div>
-              <div className="mt-1 text-lg font-black text-slate-900">{stats.acertos}</div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <div className="text-sm text-slate-500">Aproveitamento</div>
-            <div className="mt-2 text-3xl font-black text-slate-900">{aproveitamentoLabel}</div>
-            <div className="mt-2 text-sm text-slate-600">
-              Baseado em {stats.respondidas} respostas
-            </div>
-          </CardHeader>
-          <CardBody>
-            <div className="rounded-2xl border bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-500">Concluídos</div>
-              <div className="mt-1 text-lg font-black text-slate-900">
-                {stats.concluidos} / {stats.totalSimulados}
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
-
-      {/* Recentes (opcional manter) */}
-      {recentTop3.length ? (
-        <div className="space-y-3">
-          <div className="flex items-end justify-between">
-            <div>
-              <div className="text-lg font-black text-slate-900">Simulados recentes</div>
-              <div className="text-sm text-slate-600">Seus últimos 3 simulados</div>
-            </div>
-
-            <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
-              Ver todos
-            </Button>
+      {/* Recentes */}
+      <div className="space-y-3">
+        <div className="flex items-end justify-between">
+          <div>
+            <div className="text-lg font-black text-slate-900">Simulados recentes</div>
+            <div className="text-sm text-slate-600">Seus últimos 3 simulados</div>
           </div>
 
+          <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+            Ver todos
+          </Button>
+        </div>
+
+        {recentTop3.length === 0 ? (
+          <div className="rounded-3xl border bg-white p-6 shadow-sm text-slate-600">
+            Você ainda não iniciou nenhum simulado.
+          </div>
+        ) : (
           <div className="grid gap-4 sm:grid-cols-3">
             {recentTop3.map((s) => {
-              const { title } = cleanTitle(s.title);
+              const title = cleanSessionTitle(s.title);
               const total = safeNum(s.totalQuestions);
               const answered = safeNum(s.answeredCount);
               const correct = safeNum(s.correctCount);
@@ -351,6 +317,13 @@ export default function DashboardClient() {
                   : total > 0
                   ? (answered / total) * 100
                   : 0;
+
+              const badgeCls =
+                status === "completed"
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                  : "bg-amber-50 text-amber-700 border-amber-200";
+
+              const badgeText = status === "completed" ? "Concluído" : "Em andamento";
 
               return (
                 <Card key={s.id} className="overflow-hidden">
@@ -364,12 +337,10 @@ export default function DashboardClient() {
                       <span
                         className={cn(
                           "shrink-0 rounded-full border px-3 py-1 text-xs font-bold",
-                          status === "completed"
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-amber-50 text-amber-700 border-amber-200"
+                          badgeCls
                         )}
                       >
-                        {status === "completed" ? "Concluído" : "Em andamento"}
+                        {badgeText}
                       </span>
                     </div>
 
@@ -383,7 +354,9 @@ export default function DashboardClient() {
                         </div>
                       </div>
 
-                      <div className="mt-1 text-2xl font-black text-slate-900">{formatPct(pct)}</div>
+                      <div className="mt-1 text-2xl font-black text-slate-900">
+                        {formatPct(pct)}
+                      </div>
 
                       <div className="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
                         <div
@@ -393,7 +366,8 @@ export default function DashboardClient() {
                       </div>
 
                       <div className="mt-2 text-xs text-slate-600">
-                        Acertos: <span className="font-semibold text-slate-900">{correct}</span>
+                        Acertos:{" "}
+                        <span className="font-semibold text-slate-900">{correct}</span>
                       </div>
                     </div>
 
@@ -422,8 +396,59 @@ export default function DashboardClient() {
               );
             })}
           </div>
-        </div>
-      ) : null}
+        )}
+      </div>
+
+      {/* Cards principais (compactos) */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <Card>
+          <CardHeader className="space-y-1">
+            <div className="text-xs font-semibold text-slate-500">Progresso</div>
+            <div className="text-2xl font-black text-slate-900">
+              {stats.totalQuestoes > 0 ? formatPct(stats.progressoPct) : "—"}
+            </div>
+            <div className="text-xs text-slate-600">{progressoLabel}</div>
+          </CardHeader>
+          <CardBody>
+            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-slate-900 transition-all"
+                style={{ width: `${Math.min(100, Math.max(0, stats.progressoPct))}%` }}
+              />
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader className="space-y-1">
+            <div className="text-xs font-semibold text-slate-500">Questões resolvidas</div>
+            <div className="text-2xl font-black text-slate-900">{resolvidasLabel}</div>
+            <div className="text-xs text-slate-600">Total confirmadas</div>
+          </CardHeader>
+          <CardBody>
+            <div className="rounded-2xl border bg-slate-50 p-3">
+              <div className="text-[11px] font-semibold text-slate-500">Acertos</div>
+              <div className="mt-1 text-lg font-black text-slate-900">{stats.acertos}</div>
+            </div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader className="space-y-1">
+            <div className="text-xs font-semibold text-slate-500">Aproveitamento</div>
+            <div className="text-2xl font-black text-slate-900">{aproveitamentoLabel}</div>
+            <div className="text-xs text-slate-600">Base: {stats.respondidas}</div>
+          </CardHeader>
+          <CardBody>
+            <div className="rounded-2xl border bg-slate-50 p-3">
+              <div className="text-[11px] font-semibold text-slate-500">Concluídos</div>
+              <div className="mt-1 text-lg font-black text-slate-900">
+                {stats.concluidos} / {stats.totalSimulados}
+              </div>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
     </div>
   );
 }
