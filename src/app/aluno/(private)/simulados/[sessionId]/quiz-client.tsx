@@ -3,7 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc, serverTimestamp } from "firebase/firestore";
+import {
+  addDoc,
+  collection,
+  doc,
+  getDoc,
+  serverTimestamp,
+  updateDoc,
+} from "firebase/firestore";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -11,7 +18,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 type SessionDoc = {
   id: string;
   status?: "in_progress" | "completed";
-  questionIds?: string[];
+  questionIds?: any; // pode vir zoado
   totalQuestions?: number;
   currentIndex?: number;
   answeredCount?: number;
@@ -20,20 +27,37 @@ type SessionDoc = {
   answersMap?: Record<string, any>;
   updatedAt?: any;
   title?: string;
+  titleDisplay?: string;
 };
+
+type QuestionOption = { id: string; text?: string; imageUrl?: string | null };
 
 type QuestionDoc = {
   id: string;
-  title?: string;
-  statement?: string;
-  enunciado?: string;
+
+  // enunciado
+  prompt?: string;
   pergunta?: string;
-  options?: Array<{ id: string; text?: string; imageUrl?: string | null }>;
+  enunciado?: string;
+  statement?: string;
+  title?: string;
+  text?: string;
+  question?: string;
+
+  // alternativas
+  options?: QuestionOption[];
+
+  // gabarito
   correctOptionId?: string;
+  correctOption?: string;
   correct?: string;
   gabarito?: string;
-  explanation?: string | null;
-  comentario?: string | null;
+
+  // comentário
+  explanation?: any;
+  comentario?: any;
+  comment?: any;
+
   imageUrl?: string | null;
 };
 
@@ -45,10 +69,79 @@ function safeStr(v: unknown) {
   return String(v ?? "").trim();
 }
 
-async function getQuestionById(questionId: string): Promise<QuestionDoc> {
-  const ref = doc(db, "questionsBank", questionId);
+/**
+ * ✅ session.questionIds pode vir:
+ * - string[]
+ * - [{id:"q_0001"}]
+ * - qualquer coisa
+ */
+function normalizeIdList(v: any): string[] {
+  if (!v) return [];
+  if (Array.isArray(v)) {
+    return v
+      .map((x) => {
+        if (typeof x === "string") return x;
+        if (x && typeof x === "object") return x.id || x.questionId || x.questionsBankId || "";
+        return "";
+      })
+      .map((s) => safeStr(s))
+      .filter(Boolean);
+  }
+  return [];
+}
+
+/**
+ * ✅ Resolve IDs antigos:
+ * 1) tenta direto em questionsBank/{id}
+ * 2) tenta em questoes/{id} e extrai questionId -> q_0001
+ * 3) tenta alguns campos alternativos
+ */
+async function resolveQuestionsBankId(maybeId: string): Promise<string> {
+  const raw = safeStr(maybeId);
+  if (!raw) throw new Error("ID de questão vazio.");
+
+  // 1) tenta direto
+  const bankRef = doc(db, "questionsBank", raw);
+  const bankSnap = await getDoc(bankRef);
+  if (bankSnap.exists()) return raw;
+
+  // 2) tenta coleção "questoes"
+  const legacyRef = doc(db, "questoes", raw);
+  const legacySnap = await getDoc(legacyRef);
+  if (legacySnap.exists()) {
+    const data = legacySnap.data() as any;
+
+    const qid =
+      data?.questionId ||
+      data?.questionsBankId ||
+      data?.bankId ||
+      data?.qid ||
+      data?.refId ||
+      "";
+
+    const normalized = safeStr(qid);
+    if (!normalized) {
+      throw new Error(
+        `Questão não encontrada (${raw}). Doc existe em "questoes", mas sem questionId.`
+      );
+    }
+
+    // valida se existe no bank
+    const bankRef2 = doc(db, "questionsBank", normalized);
+    const bankSnap2 = await getDoc(bankRef2);
+    if (bankSnap2.exists()) return normalized;
+
+    throw new Error(`Questão não encontrada (${raw}). questionId "${normalized}" não existe no questionsBank.`);
+  }
+
+  throw new Error(`Questão não encontrada (${raw}).`);
+}
+
+async function getQuestionById(anyId: string): Promise<QuestionDoc> {
+  const resolvedId = await resolveQuestionsBankId(anyId);
+  const ref = doc(db, "questionsBank", resolvedId);
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error(`Questão não encontrada (${questionId}).`);
+  if (!snap.exists()) throw new Error(`Questão não encontrada (${anyId}).`);
   return { id: snap.id, ...(snap.data() as any) };
 }
 
@@ -69,12 +162,18 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
 
+  // reportar erro
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportText, setReportText] = useState("");
+  const [reportSending, setReportSending] = useState(false);
+
   const shouldShowFeedback = confirmed || isSubmitting;
+
   const isFirst = currentIndex <= 0;
 
   const totalFromSession = useMemo(() => {
     const tq = Number(session?.totalQuestions ?? 0) || 0;
-    const ql = Array.isArray(session?.questionIds) ? session!.questionIds!.length : 0;
+    const ql = normalizeIdList(session?.questionIds).length;
     return Math.max(tq, ql, questions.length);
   }, [session, questions.length]);
 
@@ -90,13 +189,35 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       currentQuestion?.pergunta ||
       currentQuestion?.enunciado ||
       currentQuestion?.statement ||
+      currentQuestion?.prompt ||
+      currentQuestion?.question ||
+      currentQuestion?.text ||
       currentQuestion?.title ||
       "Pergunta não encontrada"
     );
   }, [currentQuestion]);
 
   const correctId = useMemo(() => {
-    return currentQuestion?.correctOptionId || currentQuestion?.correct || currentQuestion?.gabarito || null;
+    return (
+      currentQuestion?.correctOptionId ||
+      (currentQuestion as any)?.correctOption ||
+      currentQuestion?.correct ||
+      currentQuestion?.gabarito ||
+      null
+    );
+  }, [currentQuestion]);
+
+  const explanationText = useMemo(() => {
+    const raw =
+      currentQuestion?.explanation ??
+      currentQuestion?.comentario ??
+      (currentQuestion as any)?.comment ??
+      "";
+
+    const s = safeStr(raw);
+
+    // se vier "Resposta: X Comentário: Y", mantém tudo
+    return s;
   }, [currentQuestion]);
 
   async function load() {
@@ -117,14 +238,17 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
       const sess = { id: snap.id, ...(snap.data() as any) } as SessionDoc;
 
-      const questionIds = Array.isArray(sess.questionIds) ? sess.questionIds : [];
+      const questionIds = normalizeIdList(sess.questionIds);
       if (!questionIds.length) {
-        throw new Error("Nenhuma questão foi carregada (questionIds vazio). Crie um novo simulado.");
+        throw new Error("Nenhuma questão foi carregada. (questionIds vazio na session)");
       }
 
+      // ✅ carrega robusto
       const loaded = await Promise.all(questionIds.map((qid) => getQuestionById(qid)));
+
+      // mantém ordem
       const ordered = questionIds
-        .map((qid) => loaded.find((q) => q.id === qid))
+        .map((qid) => loaded.find((q) => q.id === qid) || loaded.find((q) => true))
         .filter(Boolean) as QuestionDoc[];
 
       setSession(sess);
@@ -133,9 +257,12 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const idx = Number(sess.currentIndex ?? 0) || 0;
       setCurrentIndex(Math.min(Math.max(0, idx), Math.max(0, ordered.length - 1)));
 
+      // reseta UI
       setSelectedOptionId(null);
       setConfirmed(false);
       setIsCorrect(null);
+      setReportOpen(false);
+      setReportText("");
     } catch (e: any) {
       console.error(e);
       setErr(e?.message || "Falha ao carregar simulado.");
@@ -161,6 +288,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
   async function onConfirm() {
     if (!session || !currentQuestion || !selectedOptionId) return;
+
     const u = auth.currentUser;
     if (!u) return;
 
@@ -174,7 +302,11 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const nextAnsweredCount = Number(session.answeredCount ?? 0) + 1;
       const nextCorrectCount = Number(session.correctCount ?? 0) + (ok ? 1 : 0);
 
-      const total = Number(session.totalQuestions ?? session.questionIds?.length ?? 0) || 0;
+      const total =
+        Number(session.totalQuestions ?? normalizeIdList(session.questionIds).length ?? 0) ||
+        questions.length ||
+        0;
+
       const scorePercent = total > 0 ? Math.round((nextCorrectCount / total) * 100) : 0;
 
       await updateDoc(doc(db, "users", u.uid, "sessions", sessionId), {
@@ -227,6 +359,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setSelectedOptionId(null);
     setConfirmed(false);
     setIsCorrect(null);
+    setReportOpen(false);
+    setReportText("");
   }
 
   function onNext() {
@@ -238,6 +372,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setSelectedOptionId(null);
     setConfirmed(false);
     setIsCorrect(null);
+    setReportOpen(false);
+    setReportText("");
   }
 
   async function onFinish() {
@@ -257,6 +393,39 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       setErr("Não foi possível finalizar o simulado.");
     } finally {
       setIsFinishing(false);
+    }
+  }
+
+  async function onSendReport() {
+    const u = auth.currentUser;
+    if (!u || !currentQuestion) return;
+
+    const msg = safeStr(reportText);
+    if (!msg) return;
+
+    setReportSending(true);
+    try {
+      await addDoc(collection(db, "erros_reportados"), {
+        createdAt: serverTimestamp(),
+        status: "open",
+        userId: u.uid,
+        userEmail: u.email ?? null,
+        sessionId,
+        questionId: currentQuestion.id, // ✅ id do questionsBank
+        selectedOptionId: selectedOptionId ?? null,
+        correctOptionId: correctId ?? null,
+        message: msg,
+        origin: "web-aluno",
+      });
+
+      setReportOpen(false);
+      setReportText("");
+      alert("Erro reportado. Obrigado!");
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível reportar agora.");
+    } finally {
+      setReportSending(false);
     }
   }
 
@@ -281,7 +450,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
           <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
             {err}
           </div>
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex flex-wrap gap-2">
             <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
               Voltar
             </Button>
@@ -357,12 +526,16 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
           {!confirmed ? (
             <div className="pt-3">
-              <Button className="w-full" disabled={!selectedOptionId || isSubmitting} onClick={onConfirm}>
+              <Button
+                className="w-full"
+                disabled={!selectedOptionId || isSubmitting}
+                onClick={onConfirm}
+              >
                 {isSubmitting ? "Confirmando…" : "Confirmar resposta"}
               </Button>
             </div>
           ) : (
-            <div className="pt-3">
+            <div className="pt-3 space-y-3">
               <div
                 className={cn(
                   "rounded-2xl border px-4 py-3",
@@ -370,13 +543,61 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                 )}
               >
                 <div className="text-sm font-bold text-slate-900">Resultado</div>
-                <div className={cn("mt-1 text-sm font-semibold", isCorrect ? "text-emerald-700" : "text-rose-700")}>
+                <div
+                  className={cn(
+                    "mt-1 text-sm font-semibold",
+                    isCorrect ? "text-emerald-700" : "text-rose-700"
+                  )}
+                >
                   {isCorrect ? "✅ Você acertou!" : "❌ Você errou."}
                 </div>
               </div>
+
+              {/* ✅ comentário */}
+              {explanationText ? (
+                <div className="rounded-2xl border bg-white px-4 py-3">
+                  <div className="text-sm font-bold text-slate-900">Comentário</div>
+                  <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap">
+                    {explanationText}
+                  </div>
+                </div>
+              ) : null}
+
+              {/* ✅ reportar erro */}
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => setReportOpen((v) => !v)}>
+                  Reportar erro
+                </Button>
+              </div>
+
+              {reportOpen ? (
+                <div className="rounded-2xl border bg-slate-50 p-4 space-y-3">
+                  <div className="text-sm font-bold text-slate-900">
+                    Descreva o problema:
+                  </div>
+                  <textarea
+                    className="w-full min-h-[90px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
+                    placeholder="Ex: enunciado incompleto, alternativa errada, gabarito errado, etc."
+                    value={reportText}
+                    onChange={(e) => setReportText(e.target.value)}
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={onSendReport}
+                      disabled={!safeStr(reportText) || reportSending}
+                    >
+                      {reportSending ? "Enviando…" : "Enviar"}
+                    </Button>
+                    <Button variant="secondary" onClick={() => setReportOpen(false)}>
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              ) : null}
             </div>
           )}
 
+          {/* Footer */}
           <div className="pt-4 flex items-center justify-between gap-3">
             <Button variant="secondary" onClick={onPrev} disabled={isFirst}>
               ← Anterior
