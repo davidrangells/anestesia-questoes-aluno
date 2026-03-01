@@ -384,13 +384,13 @@ export default function DashboardClient() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col gap-2 sm:flex-row">
+                    <div className="flex items-stretch gap-2">
                       {status !== "completed" ? (
-                        <Button className="flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                        <Button className="min-w-0 flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
                           Continuar
                         </Button>
                       ) : (
-                        <Button className="flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
+                        <Button className="min-w-0 flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
                           Resultado
                         </Button>
                       )}
@@ -398,10 +398,10 @@ export default function DashboardClient() {
                       <Button
                         variant="secondary"
                         onClick={() => router.push("/aluno/simulados")}
-                        className="w-full px-4 sm:w-auto"
+                        className="shrink-0 px-4"
                         title="Ver todos"
                       >
-                        ⋯
+                        Todos
                       </Button>
                     </div>
                   </CardHeader>
