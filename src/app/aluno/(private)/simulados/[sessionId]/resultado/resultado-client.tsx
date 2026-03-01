@@ -76,7 +76,8 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
 
   const stats = useMemo(() => {
     const total = safeNum(session?.totalQuestions);
-    const answered = safeNum(session?.answeredCount);
+    const answeredRaw = safeNum(session?.answeredCount);
+    const answered = total > 0 ? Math.min(answeredRaw, total) : answeredRaw;
     const correct = safeNum(session?.correctCount);
     const errors = Math.max(0, answered - correct);
     const score =

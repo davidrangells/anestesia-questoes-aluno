@@ -6,7 +6,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
 function getBreadcrumb(pathname: string | null) {
-  if (!pathname) return "Dashboard";
+  if (!pathname) return "Início";
 
   if (pathname.startsWith("/aluno/resolver")) return "Simulado";
   if (pathname.startsWith("/aluno/simulados")) return "Simulados";
@@ -15,7 +15,7 @@ function getBreadcrumb(pathname: string | null) {
   if (pathname.startsWith("/aluno/assinatura")) return "Assinatura";
   if (pathname.startsWith("/aluno/perfil")) return "Perfil";
 
-  return "Dashboard";
+  return "Início";
 }
 
 export default function AlunoTopHeader({

@@ -145,7 +145,7 @@ export default function DashboardClient() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="text-3xl font-black text-slate-900">Dashboard</div>
+          <div className="text-3xl font-black text-slate-900">Início</div>
           <div className="text-sm text-slate-600 mt-1">Carregando seus dados…</div>
         </div>
 
@@ -172,7 +172,7 @@ export default function DashboardClient() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="text-3xl font-black text-slate-900">Dashboard</div>
+          <div className="text-3xl font-black text-slate-900">Início</div>
           <div className="text-sm text-slate-600 mt-1">Visão geral do seu desempenho</div>
         </div>
 
@@ -197,7 +197,8 @@ export default function DashboardClient() {
 
   const lastTitle = cleanSessionTitle(lastSession?.title);
   const lastTotal = safeNum(lastSession?.totalQuestions);
-  const lastAnswered = safeNum(lastSession?.answeredCount);
+  const lastAnsweredRaw = safeNum(lastSession?.answeredCount);
+  const lastAnswered = lastTotal > 0 ? Math.min(lastAnsweredRaw, lastTotal) : lastAnsweredRaw;
   const lastCorrect = safeNum(lastSession?.correctCount);
   const lastStatus = lastSession?.status ?? "in_progress";
 
@@ -212,7 +213,7 @@ export default function DashboardClient() {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-3xl font-black text-slate-900">Dashboard</div>
+          <div className="text-3xl font-black text-slate-900">Início</div>
           <div className="text-sm text-slate-600 mt-1">Visão geral do seu desempenho</div>
         </div>
 

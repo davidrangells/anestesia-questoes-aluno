@@ -44,7 +44,7 @@ export default function AlunoPrivateLayout({
             />
 
             {/* painel lateral */}
-            <div className="absolute left-0 top-0 h-full w-[85vw] max-w-[320px] bg-white shadow-2xl">
+            <div className="absolute left-0 top-0 flex h-full w-[85vw] max-w-[320px] flex-col bg-white shadow-2xl">
               <div className="flex items-center justify-between px-4 py-4 border-b">
                 <div className="text-sm font-black text-slate-900">
                   Menu
@@ -57,10 +57,12 @@ export default function AlunoPrivateLayout({
                 </button>
               </div>
 
-              <AlunoSidebar
-                variant="drawer"
-                onNavigate={() => setMobileOpen(false)}
-              />
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                <AlunoSidebar
+                  variant="drawer"
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              </div>
             </div>
           </div>
         )}

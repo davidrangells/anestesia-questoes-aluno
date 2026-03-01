@@ -167,7 +167,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   const [reportText, setReportText] = useState("");
   const [reportSending, setReportSending] = useState(false);
 
-  const shouldShowFeedback = confirmed || isSubmitting;
+  const isReviewMode = session?.status === "completed";
+  const shouldShowFeedback = confirmed || isSubmitting || isReviewMode;
 
   const isFirst = currentIndex <= 0;
 
@@ -183,6 +184,11 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   }, [currentIndex, totalFromSession, questions.length]);
 
   const currentQuestion = useMemo(() => questions[currentIndex] ?? null, [questions, currentIndex]);
+  const currentSavedAnswer = useMemo(() => {
+    if (!session || !currentQuestion) return null;
+    const saved = session.answersMap?.[currentQuestion.id];
+    return saved && typeof saved === "object" ? saved : null;
+  }, [session, currentQuestion]);
 
   const statement = useMemo(() => {
     return (
@@ -248,7 +254,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
       // mantém ordem
       const ordered = questionIds
-        .map((qid) => loaded.find((q) => q.id === qid) || loaded.find((q) => true))
+        .map((qid) => loaded.find((q) => q.id === qid) || loaded[0] || null)
         .filter(Boolean) as QuestionDoc[];
 
       setSession(sess);
@@ -257,12 +263,6 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const idx = Number(sess.currentIndex ?? 0) || 0;
       setCurrentIndex(Math.min(Math.max(0, idx), Math.max(0, ordered.length - 1)));
 
-      // reseta UI
-      setSelectedOptionId(null);
-      setConfirmed(false);
-      setIsCorrect(null);
-      setReportOpen(false);
-      setReportText("");
     } catch (e: any) {
       console.error(e);
       setErr(e?.message || "Falha ao carregar simulado.");
@@ -276,6 +276,30 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    setReportOpen(false);
+    setReportText("");
+
+    if (!currentQuestion) {
+      setSelectedOptionId(null);
+      setConfirmed(false);
+      setIsCorrect(null);
+      return;
+    }
+
+    if (currentSavedAnswer) {
+      const savedOptionId = safeStr(currentSavedAnswer.selectedOptionId);
+      setSelectedOptionId(savedOptionId || null);
+      setConfirmed(true);
+      setIsCorrect(Boolean(currentSavedAnswer.isCorrect));
+      return;
+    }
+
+    setSelectedOptionId(null);
+    setConfirmed(false);
+    setIsCorrect(null);
+  }, [currentQuestion, currentSavedAnswer]);
+
   async function persistIndex(nextIndex: number) {
     const u = auth.currentUser;
     if (!u) return;
@@ -287,7 +311,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   }
 
   async function onConfirm() {
-    if (!session || !currentQuestion || !selectedOptionId) return;
+    if (!session || !currentQuestion || !selectedOptionId || isReviewMode) return;
 
     const u = auth.currentUser;
     if (!u) return;
@@ -295,6 +319,15 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setIsSubmitting(true);
 
     try {
+      const existingAnswer = session.answersMap?.[currentQuestion.id];
+      if (existingAnswer && typeof existingAnswer === "object") {
+        const savedOptionId = safeStr(existingAnswer.selectedOptionId);
+        setSelectedOptionId(savedOptionId || null);
+        setConfirmed(true);
+        setIsCorrect(Boolean(existingAnswer.isCorrect));
+        return;
+      }
+
       const chosen = safeStr(selectedOptionId);
       const correct = safeStr(correctId);
       const ok = !!(correct && chosen && correct === chosen);
@@ -463,8 +496,11 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
   if (!session || !currentQuestion) return null;
 
-  const canFinalize = isLast;
+  const canFinalize = !isReviewMode && isLast;
   const finalizeDisabled = !confirmed || isSubmitting || isFinishing;
+  const answeredCount = Math.min(Number(session.answeredCount ?? 0) || 0, totalFromSession || 0);
+  const hasSavedAnswer = !!currentSavedAnswer && !!safeStr(currentSavedAnswer.selectedOptionId);
+  const showResultPanel = confirmed || isReviewMode;
 
   return (
     <div className="space-y-4">
@@ -486,11 +522,11 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               <button
                 key={opt.id}
                 type="button"
-                onClick={() => !confirmed && setSelectedOptionId(opt.id)}
+                onClick={() => !confirmed && !isReviewMode && setSelectedOptionId(opt.id)}
                 className={cn(
                   "w-full text-left rounded-2xl border px-4 py-4 transition outline-none",
                   "focus:ring-2 focus:ring-slate-900/10",
-                  !confirmed && "hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)]",
+                  !confirmed && !isReviewMode && "hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)]",
                   isSelected
                     ? "border-slate-900/50 bg-slate-900/5"
                     : "border-slate-200 bg-white hover:bg-slate-50",
@@ -524,7 +560,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
             );
           })}
 
-          {!confirmed ? (
+          {!showResultPanel ? (
             <div className="pt-3">
               <Button
                 className="w-full"
@@ -539,18 +575,28 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               <div
                 className={cn(
                   "rounded-2xl border px-4 py-3",
-                  isCorrect ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
+                  hasSavedAnswer
+                    ? isCorrect
+                      ? "border-emerald-200 bg-emerald-50"
+                      : "border-rose-200 bg-rose-50"
+                    : "border-slate-200 bg-slate-50"
                 )}
               >
                 <div className="text-sm font-bold text-slate-900">Resultado</div>
-                <div
-                  className={cn(
-                    "mt-1 text-sm font-semibold",
-                    isCorrect ? "text-emerald-700" : "text-rose-700"
-                  )}
-                >
-                  {isCorrect ? "✅ Você acertou!" : "❌ Você errou."}
-                </div>
+                {hasSavedAnswer ? (
+                  <div
+                    className={cn(
+                      "mt-1 text-sm font-semibold",
+                      isCorrect ? "text-emerald-700" : "text-rose-700"
+                    )}
+                  >
+                    {isCorrect ? "✅ Você acertou!" : "❌ Você errou."}
+                  </div>
+                ) : (
+                  <div className="mt-1 text-sm font-semibold text-slate-600">
+                    Questão sem resposta registrada.
+                  </div>
+                )}
               </div>
 
               {/* ✅ comentário */}
@@ -607,16 +653,24 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               <Button onClick={onFinish} disabled={finalizeDisabled}>
                 {isFinishing ? "Finalizando…" : "Finalizar →"}
               </Button>
+            ) : isReviewMode && isLast ? (
+              <Button onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}>
+                Voltar ao resultado
+              </Button>
             ) : (
-              <Button variant="secondary" onClick={onNext} disabled={!confirmed || isLast}>
+              <Button
+                variant="secondary"
+                onClick={onNext}
+                disabled={isReviewMode ? isLast : !confirmed || isLast}
+              >
                 Próxima →
               </Button>
             )}
           </div>
 
-          {confirmed ? (
+          {showResultPanel ? (
             <div className="text-sm font-semibold text-emerald-700">
-              Resposta confirmada ✓
+              {isReviewMode ? `Revisão ${answeredCount}/${totalFromSession}` : "Resposta confirmada ✓"}
             </div>
           ) : null}
         </CardBody>

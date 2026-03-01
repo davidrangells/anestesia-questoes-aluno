@@ -211,7 +211,8 @@ export default function SimuladosPageClient() {
           const { title, subtitle } = cleanTitle(display);
 
           const total = Number(s.totalQuestions ?? 0) || 0;
-          const answered = Number(s.answeredCount ?? 0) || 0;
+          const answeredRaw = Number(s.answeredCount ?? 0) || 0;
+          const answered = total > 0 ? Math.min(answeredRaw, total) : answeredRaw;
           const correct = Number(s.correctCount ?? 0) || 0;
 
           const percent =

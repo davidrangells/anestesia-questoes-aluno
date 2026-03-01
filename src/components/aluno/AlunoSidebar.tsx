@@ -67,6 +67,7 @@ export default function AlunoSidebar({
 
   const logout = async () => {
     await signOut(auth);
+    onNavigate?.();
     router.replace("/aluno/entrar");
   };
 
@@ -98,7 +99,7 @@ export default function AlunoSidebar({
 
       {/* Nav */}
       <nav className="px-4 py-4 flex flex-col gap-2">
-        <Item href="/aluno" label="Dashboard" icon="🏠" onNavigate={onNavigate} />
+        <Item href="/aluno" label="Início" icon="🏠" onNavigate={onNavigate} />
         <Item
           href="/aluno/simulados"
           label="Simulados"
@@ -119,7 +120,7 @@ export default function AlunoSidebar({
         />
       </nav>
 
-      <div className="mt-auto px-4 py-4 border-t">
+      <div className="mt-auto px-4 py-4 border-t bg-white">
         <button
           onClick={logout}
           className="w-full rounded-2xl px-4 py-3 text-sm bg-slate-900 text-white hover:bg-slate-800 transition font-semibold"
