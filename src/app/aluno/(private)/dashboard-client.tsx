@@ -23,6 +23,10 @@ type TimestampLike = {
   toMillis?: () => number;
 };
 
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
@@ -43,8 +47,11 @@ function tsToMs(v: unknown): number {
   if (typeof v === "object" && v !== null && "toMillis" in v && typeof (v as TimestampLike).toMillis === "function") {
     return (v as TimestampLike).toMillis!();
   }
-  const d = new Date(v);
-  return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  if (typeof v === "string" || typeof v === "number" || v instanceof Date) {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  return 0;
 }
 
 /**

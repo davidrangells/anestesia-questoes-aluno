@@ -26,6 +26,10 @@ type TemaDoc = {
   nome?: string;
 };
 
+function hasText(value: string | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
 type QuestionBankDoc = {
   id: string;
   isActive?: boolean;
@@ -81,7 +85,7 @@ export default function NovoSimuladoClient() {
           const tSnap = await getDocs(query(collection(db, "temas"), limit(300)));
           const names = tSnap.docs
             .map((d) => (d.data() as TemaDoc).nome)
-            .filter(Boolean)
+            .filter(hasText)
             .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
           setTemas(names);
         } catch {

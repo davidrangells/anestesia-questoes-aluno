@@ -47,7 +47,12 @@ function formatDate(ts: unknown) {
     const d =
       typeof ts === "object" && ts !== null && "toDate" in ts && typeof (ts as TimestampLike).toDate === "function"
         ? (ts as TimestampLike).toDate!()
-        : new Date(ts);
+        : ts instanceof Date
+        ? ts
+        : typeof ts === "string" || typeof ts === "number"
+        ? new Date(ts)
+        : null;
+    if (!d) return "—";
     return d.toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",

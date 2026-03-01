@@ -30,6 +30,10 @@ function toDate(v: unknown): Date | null {
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : d;
   }
+  if (typeof v === "number") {
+    const d = new Date(v);
+    return isNaN(d.getTime()) ? null : d;
+  }
   if (isTimestampLike(v) && typeof v.seconds === "number") return new Date(v.seconds * 1000);
   return null;
 }

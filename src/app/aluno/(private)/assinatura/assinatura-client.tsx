@@ -46,12 +46,15 @@ function toDate(value: unknown): Date | null {
   if (!value) return null;
 
   // Firestore Timestamp
+  if (value instanceof Date) return value;
   if (value instanceof Timestamp) return value.toDate();
   if (isTimestampLike(value) && typeof value.toDate === "function") return value.toDate();
 
   // ISO string / date-like
-  const d = new Date(value);
-  if (!Number.isNaN(d.getTime())) return d;
+  if (typeof value === "string" || typeof value === "number") {
+    const d = new Date(value);
+    if (!Number.isNaN(d.getTime())) return d;
+  }
 
   // fallback { seconds }
   if (isTimestampLike(value) && typeof value.seconds === "number") return new Date(value.seconds * 1000);
