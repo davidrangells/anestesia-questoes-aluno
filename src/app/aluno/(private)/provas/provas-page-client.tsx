@@ -16,6 +16,19 @@ type Prova = {
   title?: string;
 };
 
+function getErrorCode(error: unknown) {
+  if (typeof error === "object" && error !== null && "code" in error) {
+    const code = (error as { code?: unknown }).code;
+    return typeof code === "string" ? code : "";
+  }
+  return "";
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
 function cn(...xs: Array<string | false | undefined | null>) {
   return xs.filter(Boolean).join(" ");
 }
@@ -45,19 +58,20 @@ export default function ProvasPageClient() {
 
         const rows: Prova[] = snap.docs.map((d) => ({
           id: d.id,
-          ...(d.data() as any),
+          ...(d.data() as Omit<Prova, "id">),
         }));
 
         if (!alive) return;
         setProvas(rows);
-      } catch (e: any) {
+      } catch (error: unknown) {
         // Se rules bloquearem, normalmente vem "permission-denied"
+        const code = getErrorCode(error);
         const msg =
-          e?.code === "permission-denied"
+          code === "permission-denied"
             ? "Permissão negada ao ler 'provas'. Verifique as Rules do Firestore."
-            : e?.code === "failed-precondition"
+            : code === "failed-precondition"
             ? "Faltou índice no Firestore para essa query (ativo + ordem). O console do Firebase mostra o link para criar."
-            : e?.message || "Erro ao carregar provas.";
+            : getErrorMessage(error, "Erro ao carregar provas.");
 
         if (!alive) return;
         setErro(msg);

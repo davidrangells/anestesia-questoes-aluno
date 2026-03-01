@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
@@ -19,7 +19,12 @@ type SessionDoc = {
   scorePercent?: number;
 };
 
-function safeNum(v: any, fallback = 0) {
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function safeNum(v: unknown, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
@@ -45,7 +50,7 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
   const [err, setErr] = useState("");
   const [session, setSession] = useState<SessionDoc | null>(null);
 
-  async function load() {
+  const load = useCallback(async () => {
     const u = auth.currentUser;
     if (!u) {
       setErr("Você precisa estar logado.");
@@ -60,19 +65,18 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
       const ref = doc(db, "users", u.uid, "sessions", sessionId);
       const snap = await getDoc(ref);
       if (!snap.exists()) throw new Error("Sessão não encontrada.");
-      setSession({ id: snap.id, ...(snap.data() as any) });
-    } catch (e: any) {
-      console.error(e);
-      setErr(e?.message || "Falha ao carregar resultado.");
+      setSession({ id: snap.id, ...(snap.data() as Omit<SessionDoc, "id">) });
+    } catch (error: unknown) {
+      console.error(error);
+      setErr(getErrorMessage(error, "Falha ao carregar resultado."));
     } finally {
       setLoading(false);
     }
-  }
+  }, [sessionId]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void load();
+  }, [load]);
 
   const stats = useMemo(() => {
     const total = safeNum(session?.totalQuestions);
@@ -110,11 +114,11 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
           <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 font-semibold">
             {err}
           </div>
-          <div className="mt-4 flex gap-2">
-            <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
               Voltar
             </Button>
-            <Button onClick={load}>Tentar novamente</Button>
+            <Button className="w-full sm:w-auto" onClick={load}>Tentar novamente</Button>
           </div>
         </CardBody>
       </Card>
@@ -140,11 +144,11 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
               Voltar para Simulados
             </Button>
-            <Button onClick={() => router.push(`/aluno/simulados/${sessionId}`)}>
+            <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${sessionId}`)}>
               Revisar questões
             </Button>
           </div>
@@ -179,11 +183,11 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
             Aproveitamento: <b>{formatPct(stats.score)}</b>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => router.push("/aluno/simulados/novo")}>
+          <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <Button className="w-full sm:w-auto" onClick={() => router.push("/aluno/simulados/novo")}>
               Novo simulado
             </Button>
-            <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
               Ver simulados
             </Button>
           </div>

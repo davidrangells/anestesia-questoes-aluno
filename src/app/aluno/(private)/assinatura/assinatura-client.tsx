@@ -18,8 +18,8 @@ type Entitlement = {
   productId?: string | null;
 
   // datas
-  validUntil?: any; // Timestamp | string | null
-  updatedAt?: any;
+  validUntil?: unknown;
+  updatedAt?: unknown;
 
   // extras (se tiver)
   amountPaid?: number | null;
@@ -28,19 +28,33 @@ type Entitlement = {
   source?: string | null;
 };
 
-function toDate(value: any): Date | null {
+type TimestampLike = {
+  seconds?: number;
+  toDate?: () => Date;
+};
+
+function isTimestampLike(value: unknown): value is TimestampLike {
+  return typeof value === "object" && value !== null;
+}
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function toDate(value: unknown): Date | null {
   if (!value) return null;
 
   // Firestore Timestamp
   if (value instanceof Timestamp) return value.toDate();
-  if (typeof value === "object" && typeof value?.toDate === "function") return value.toDate();
+  if (isTimestampLike(value) && typeof value.toDate === "function") return value.toDate();
 
   // ISO string / date-like
   const d = new Date(value);
   if (!Number.isNaN(d.getTime())) return d;
 
   // fallback { seconds }
-  if (typeof value?.seconds === "number") return new Date(value.seconds * 1000);
+  if (isTimestampLike(value) && typeof value.seconds === "number") return new Date(value.seconds * 1000);
 
   return null;
 }
@@ -56,7 +70,7 @@ function daysUntil(date: Date) {
   return Math.ceil(ms / (1000 * 60 * 60 * 24));
 }
 
-function formatDateBR(value: any): string {
+function formatDateBR(value: unknown): string {
   const d = toDate(value);
   if (!d) return "—";
   return d.toLocaleDateString("pt-BR");
@@ -115,18 +129,18 @@ export default function AssinaturaClient() {
         return;
       }
 
-      setEnt({ ...(snap.data() as any), uid: u.uid, email: u.email || (snap.data() as any)?.email });
-    } catch (e: any) {
-      console.error(e);
-      setError(e?.message || "Falha ao carregar assinatura.");
+      const data = snap.data() as Omit<Entitlement, "uid">;
+      setEnt({ ...data, uid: u.uid, email: u.email || data.email });
+    } catch (error: unknown) {
+      console.error(error);
+      setError(getErrorMessage(error, "Falha ao carregar assinatura."));
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load();
   }, []);
 
   const validUntilDate = useMemo(() => toDate(ent?.validUntil), [ent?.validUntil]);

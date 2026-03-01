@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { auth } from "@/lib/firebase";
 
 export default function AlunoHeader() {
-  const [name, setName] = useState("");
-
-  useEffect(() => {
-    const user = auth.currentUser;
-    if (user?.email) {
-      const firstName = user.email.split("@")[0];
-      setName(firstName);
-    }
+  const name = useMemo(() => {
+    const email = auth.currentUser?.email;
+    return email ? email.split("@")[0] : "";
   }, []);
 
   return (

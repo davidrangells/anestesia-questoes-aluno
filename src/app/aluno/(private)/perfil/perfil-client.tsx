@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
@@ -24,8 +24,8 @@ type ProfileData = {
   addressZip?: string;
 
   // metadados
-  updatedAt?: any;
-  createdAt?: any;
+  updatedAt?: unknown;
+  createdAt?: unknown;
 
   // opcional: origem
   source?: "eduzz" | "user";
@@ -96,7 +96,7 @@ export default function PerfilClient() {
     return (name || data.name || email || "Seu perfil").trim();
   }, [name, data.name, email]);
 
-  async function load() {
+  const load = useCallback(async () => {
     const u = auth.currentUser;
     if (!u) {
       router.replace("/aluno/entrar");
@@ -125,12 +125,11 @@ export default function PerfilClient() {
     } finally {
       setLoading(false);
     }
-  }
+  }, [router]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void load();
+  }, [load]);
 
   function startEdit() {
     setEditing(true);
@@ -185,9 +184,10 @@ export default function PerfilClient() {
       setData((prev) => ({ ...prev, ...payload }));
       setEditing(false);
       alert("Perfil atualizado!");
-    } catch (e: any) {
-      console.error(e);
-      alert(e?.message || "Erro ao salvar perfil.");
+    } catch (error: unknown) {
+      console.error(error);
+      const message = error instanceof Error && error.message ? error.message : "Erro ao salvar perfil.";
+      alert(message);
     } finally {
       setSaving(false);
     }

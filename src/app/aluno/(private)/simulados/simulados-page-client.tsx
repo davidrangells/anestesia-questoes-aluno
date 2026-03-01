@@ -29,13 +29,25 @@ type SessionDoc = {
   answeredCount?: number;
   correctCount?: number;
   scorePercent?: number;
-  updatedAt?: any;
+  updatedAt?: unknown;
 };
 
-function formatDate(ts: any) {
+type TimestampLike = {
+  toDate?: () => Date;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
+
+function formatDate(ts: unknown) {
   try {
     if (!ts) return "—";
-    const d = ts?.toDate?.() ? ts.toDate() : new Date(ts);
+    const d =
+      typeof ts === "object" && ts !== null && "toDate" in ts && typeof (ts as TimestampLike).toDate === "function"
+        ? (ts as TimestampLike).toDate!()
+        : new Date(ts);
     return d.toLocaleString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
@@ -97,13 +109,13 @@ export default function SimuladosPageClient() {
 
       const list: SessionDoc[] = snap.docs.map((d) => ({
         id: d.id,
-        ...(d.data() as any),
+        ...(d.data() as Omit<SessionDoc, "id">),
       }));
 
       setSessions(list);
-    } catch (e: any) {
-      console.error(e);
-      setErr(e?.message || "Falha ao carregar simulados.");
+    } catch (error: unknown) {
+      console.error(error);
+      setErr(getErrorMessage(error, "Falha ao carregar simulados."));
     } finally {
       setLoading(false);
     }
@@ -284,18 +296,18 @@ export default function SimuladosPageClient() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                     {!isCompleted ? (
-                      <Button onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                      <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
                         Retomar
                       </Button>
                     ) : (
-                      <Button onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
+                      <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
                         Resultado
                       </Button>
                     )}
 
-                    <Button variant="secondary" onClick={() => onDelete(s.id)}>
+                    <Button className="w-full sm:w-auto" variant="secondary" onClick={() => onDelete(s.id)}>
                       Excluir
                     </Button>
                   </div>

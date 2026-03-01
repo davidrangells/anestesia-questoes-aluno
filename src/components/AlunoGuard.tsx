@@ -6,7 +6,23 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 
-function toDate(v: any): Date | null {
+type TimestampLike = {
+  seconds?: number;
+  toDate?: () => Date;
+};
+
+type EntitlementDoc = {
+  active?: boolean;
+  validUntil?: unknown;
+  dueDate?: unknown;
+  contractDueDate?: unknown;
+};
+
+function isTimestampLike(value: unknown): value is TimestampLike {
+  return typeof value === "object" && value !== null;
+}
+
+function toDate(v: unknown): Date | null {
   if (!v) return null;
   if (v instanceof Date) return v;
   if (v instanceof Timestamp) return v.toDate();
@@ -14,7 +30,7 @@ function toDate(v: any): Date | null {
     const d = new Date(v);
     return isNaN(d.getTime()) ? null : d;
   }
-  if (typeof v?.seconds === "number") return new Date(v.seconds * 1000);
+  if (isTimestampLike(v) && typeof v.seconds === "number") return new Date(v.seconds * 1000);
   return null;
 }
 
@@ -48,7 +64,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         const entRef = doc(db, "entitlements", user.uid);
         const entSnap = await getDoc(entRef);
 
-        const ent = entSnap.exists() ? (entSnap.data() as any) : null;
+        const ent = entSnap.exists() ? (entSnap.data() as EntitlementDoc) : null;
 
         const active = Boolean(ent?.active);
         const validUntil = toDate(ent?.validUntil || ent?.dueDate || ent?.contractDueDate);

@@ -15,12 +15,17 @@ type SessionDoc = {
   answeredCount?: number;
   correctCount?: number;
   scorePercent?: number;
-  updatedAt?: any;
+  updatedAt?: unknown;
   title?: string;
 };
 
-function cn(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
+type TimestampLike = {
+  toMillis?: () => number;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
 }
 
 function formatPct(v: number) {
@@ -28,14 +33,16 @@ function formatPct(v: number) {
   return `${Math.round(v)}%`;
 }
 
-function safeNum(v: any, fallback = 0) {
+function safeNum(v: unknown, fallback = 0) {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 }
 
-function tsToMs(v: any): number {
+function tsToMs(v: unknown): number {
   if (!v) return 0;
-  if (typeof v === "object" && typeof v?.toMillis === "function") return v.toMillis();
+  if (typeof v === "object" && v !== null && "toMillis" in v && typeof (v as TimestampLike).toMillis === "function") {
+    return (v as TimestampLike).toMillis!();
+  }
   const d = new Date(v);
   return Number.isNaN(d.getTime()) ? 0 : d.getTime();
 }
@@ -92,28 +99,23 @@ export default function DashboardClient() {
       const qy = query(ref);
 
       const snap = await getDocs(qy);
-      const items: SessionDoc[] = [];
-
-      snap.forEach((docSnap) => {
-        items.push({
-          id: docSnap.id,
-          ...(docSnap.data() as any),
-        });
-      });
+      const items: SessionDoc[] = snap.docs.map((docSnap) => ({
+        id: docSnap.id,
+        ...(docSnap.data() as Omit<SessionDoc, "id">),
+      }));
 
       items.sort((a, b) => tsToMs(b.updatedAt) - tsToMs(a.updatedAt));
       setSessions(items);
-    } catch (e: any) {
-      console.error(e);
-      setErr(e?.message || "Falha ao carregar dados do dashboard.");
+    } catch (error: unknown) {
+      console.error(error);
+      setErr(getErrorMessage(error, "Falha ao carregar dados do dashboard."));
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load();
   }, []);
 
   const stats = useMemo(() => {

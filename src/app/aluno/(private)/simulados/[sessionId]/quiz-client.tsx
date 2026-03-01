@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import {
@@ -18,16 +18,22 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 type SessionDoc = {
   id: string;
   status?: "in_progress" | "completed";
-  questionIds?: any; // pode vir zoado
+  questionIds?: unknown;
   totalQuestions?: number;
   currentIndex?: number;
   answeredCount?: number;
   correctCount?: number;
   scorePercent?: number;
-  answersMap?: Record<string, any>;
-  updatedAt?: any;
+  answersMap?: Record<string, AnswerMapItem>;
+  updatedAt?: unknown;
   title?: string;
   titleDisplay?: string;
+};
+
+type AnswerMapItem = {
+  selectedOptionId?: string;
+  isCorrect?: boolean;
+  answeredAt?: unknown;
 };
 
 type QuestionOption = { id: string; text?: string; imageUrl?: string | null };
@@ -54,12 +60,25 @@ type QuestionDoc = {
   gabarito?: string;
 
   // comentário
-  explanation?: any;
-  comentario?: any;
-  comment?: any;
+  explanation?: unknown;
+  comentario?: unknown;
+  comment?: unknown;
 
   imageUrl?: string | null;
 };
+
+type LegacyQuestionDoc = {
+  questionId?: unknown;
+  questionsBankId?: unknown;
+  bankId?: unknown;
+  qid?: unknown;
+  refId?: unknown;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message) return error.message;
+  return fallback;
+}
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -75,13 +94,16 @@ function safeStr(v: unknown) {
  * - [{id:"q_0001"}]
  * - qualquer coisa
  */
-function normalizeIdList(v: any): string[] {
+function normalizeIdList(v: unknown): string[] {
   if (!v) return [];
   if (Array.isArray(v)) {
     return v
       .map((x) => {
         if (typeof x === "string") return x;
-        if (x && typeof x === "object") return x.id || x.questionId || x.questionsBankId || "";
+        if (x && typeof x === "object") {
+          const item = x as { id?: unknown; questionId?: unknown; questionsBankId?: unknown };
+          return item.id || item.questionId || item.questionsBankId || "";
+        }
         return "";
       })
       .map((s) => safeStr(s))
@@ -109,7 +131,7 @@ async function resolveQuestionsBankId(maybeId: string): Promise<string> {
   const legacyRef = doc(db, "questoes", raw);
   const legacySnap = await getDoc(legacyRef);
   if (legacySnap.exists()) {
-    const data = legacySnap.data() as any;
+    const data = legacySnap.data() as LegacyQuestionDoc;
 
     const qid =
       data?.questionId ||
@@ -137,12 +159,12 @@ async function resolveQuestionsBankId(maybeId: string): Promise<string> {
   throw new Error(`Questão não encontrada (${raw}).`);
 }
 
-async function getQuestionById(anyId: string): Promise<QuestionDoc> {
-  const resolvedId = await resolveQuestionsBankId(anyId);
+async function getQuestionById(questionIdInput: string): Promise<QuestionDoc> {
+  const resolvedId = await resolveQuestionsBankId(questionIdInput);
   const ref = doc(db, "questionsBank", resolvedId);
   const snap = await getDoc(ref);
-  if (!snap.exists()) throw new Error(`Questão não encontrada (${anyId}).`);
-  return { id: snap.id, ...(snap.data() as any) };
+  if (!snap.exists()) throw new Error(`Questão não encontrada (${questionIdInput}).`);
+  return { id: snap.id, ...(snap.data() as Omit<QuestionDoc, "id">) };
 }
 
 export default function QuizClient({ sessionId }: { sessionId: string }) {
@@ -206,7 +228,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   const correctId = useMemo(() => {
     return (
       currentQuestion?.correctOptionId ||
-      (currentQuestion as any)?.correctOption ||
+      currentQuestion?.correctOption ||
       currentQuestion?.correct ||
       currentQuestion?.gabarito ||
       null
@@ -217,7 +239,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     const raw =
       currentQuestion?.explanation ??
       currentQuestion?.comentario ??
-      (currentQuestion as any)?.comment ??
+      currentQuestion?.comment ??
       "";
 
     const s = safeStr(raw);
@@ -226,7 +248,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     return s;
   }, [currentQuestion]);
 
-  async function load() {
+  const load = useCallback(async () => {
     const u = auth.currentUser;
     if (!u) {
       setErr("Você precisa estar logado.");
@@ -242,7 +264,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const snap = await getDoc(sessionRef);
       if (!snap.exists()) throw new Error("Sessão não encontrada.");
 
-      const sess = { id: snap.id, ...(snap.data() as any) } as SessionDoc;
+      const sess: SessionDoc = { id: snap.id, ...(snap.data() as Omit<SessionDoc, "id">) };
 
       const questionIds = normalizeIdList(sess.questionIds);
       if (!questionIds.length) {
@@ -263,18 +285,17 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       const idx = Number(sess.currentIndex ?? 0) || 0;
       setCurrentIndex(Math.min(Math.max(0, idx), Math.max(0, ordered.length - 1)));
 
-    } catch (e: any) {
-      console.error(e);
-      setErr(e?.message || "Falha ao carregar simulado.");
+    } catch (error: unknown) {
+      console.error(error);
+      setErr(getErrorMessage(error, "Falha ao carregar simulado."));
     } finally {
       setLoading(false);
     }
-  }
+  }, [sessionId]);
 
   useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void load();
+  }, [load]);
 
   useEffect(() => {
     setReportOpen(false);
@@ -610,8 +631,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               ) : null}
 
               {/* ✅ reportar erro */}
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => setReportOpen((v) => !v)}>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setReportOpen((v) => !v)}>
                   Reportar erro
                 </Button>
               </div>
@@ -627,14 +648,15 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                     value={reportText}
                     onChange={(e) => setReportText(e.target.value)}
                   />
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
+                      className="w-full sm:w-auto"
                       onClick={onSendReport}
                       disabled={!safeStr(reportText) || reportSending}
                     >
                       {reportSending ? "Enviando…" : "Enviar"}
                     </Button>
-                    <Button variant="secondary" onClick={() => setReportOpen(false)}>
+                    <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setReportOpen(false)}>
                       Cancelar
                     </Button>
                   </div>
@@ -644,21 +666,22 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
           )}
 
           {/* Footer */}
-          <div className="pt-4 flex items-center justify-between gap-3">
-            <Button variant="secondary" onClick={onPrev} disabled={isFirst}>
+          <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={onPrev} disabled={isFirst}>
               ← Anterior
             </Button>
 
             {canFinalize ? (
-              <Button onClick={onFinish} disabled={finalizeDisabled}>
+              <Button className="w-full sm:w-auto" onClick={onFinish} disabled={finalizeDisabled}>
                 {isFinishing ? "Finalizando…" : "Finalizar →"}
               </Button>
             ) : isReviewMode && isLast ? (
-              <Button onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}>
+              <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}>
                 Voltar ao resultado
               </Button>
             ) : (
               <Button
+                className="w-full sm:w-auto"
                 variant="secondary"
                 onClick={onNext}
                 disabled={isReviewMode ? isLast : !confirmed || isLast}

@@ -22,6 +22,10 @@ function toggle(list: string[], value: string) {
 
 type Prova = { id: string; nome?: string; sigla?: string; ativo?: boolean; ordem?: number };
 
+type TemaDoc = {
+  nome?: string;
+};
+
 type QuestionBankDoc = {
   id: string;
   isActive?: boolean;
@@ -71,12 +75,12 @@ export default function NovoSimuladoClient() {
           limit(50)
         );
         const pSnap = await getDocs(pQ);
-        setProvas(pSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })));
+        setProvas(pSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Prova, "id">) })));
 
         try {
           const tSnap = await getDocs(query(collection(db, "temas"), limit(300)));
           const names = tSnap.docs
-            .map((d) => (d.data() as any)?.nome)
+            .map((d) => (d.data() as TemaDoc).nome)
             .filter(Boolean)
             .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
           setTemas(names);
@@ -122,7 +126,7 @@ export default function NovoSimuladoClient() {
 
     const all: QuestionBankDoc[] = snap.docs.map((d) => ({
       id: d.id,
-      ...(d.data() as any),
+      ...(d.data() as Omit<QuestionBankDoc, "id">),
     }));
 
     const activeOnly = all.filter((q) => q.isActive !== false);
