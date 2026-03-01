@@ -97,12 +97,12 @@ export default function ProvasPageClient() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex w-full items-center gap-3 sm:w-auto">
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Buscar (ex: TSA 2024, banca, título...)"
-              className="w-[280px] max-w-full rounded-2xl border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-200"
+              className="ui-input w-full sm:w-[280px]"
             />
           </div>
         </div>

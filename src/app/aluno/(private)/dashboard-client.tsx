@@ -210,14 +210,14 @@ export default function DashboardClient() {
       : "—";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 overflow-x-hidden">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-3xl font-black text-slate-900">Início</div>
           <div className="text-sm text-slate-600 mt-1">Visão geral do seu desempenho</div>
         </div>
 
-        <Button variant="secondary" onClick={load}>
+        <Button variant="secondary" onClick={load} className="w-full sm:w-auto">
           Atualizar
         </Button>
       </div>
@@ -255,8 +255,8 @@ export default function DashboardClient() {
             )}
           </div>
 
-          <div className="flex flex-col sm:items-end gap-2">
-            <div className="rounded-2xl border bg-slate-50 px-4 py-3">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
+            <div className="rounded-2xl border bg-slate-50 px-4 py-3 sm:min-w-[160px]">
               <div className="text-xs font-semibold text-slate-500">
                 {lastStatus === "completed" ? "Nota" : "Progresso"}
               </div>
@@ -264,23 +264,25 @@ export default function DashboardClient() {
             </div>
 
             {lastSession ? (
-              <div className="flex gap-2">
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                 {lastStatus !== "completed" ? (
-                  <Button onClick={() => router.push(`/aluno/simulados/${lastSession.id}`)}>
+                  <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${lastSession.id}`)}>
                     Continuar
                   </Button>
                 ) : (
-                  <Button onClick={() => router.push(`/aluno/simulados/${lastSession.id}/resultado`)}>
+                  <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${lastSession.id}/resultado`)}>
                     Ver resultado
                   </Button>
                 )}
 
-                <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
                   Ver todos
                 </Button>
               </div>
             ) : (
-              <Button onClick={() => router.push("/aluno/simulados")}>Ir para simulados</Button>
+              <Button className="w-full sm:w-auto" onClick={() => router.push("/aluno/simulados")}>
+                Ir para simulados
+              </Button>
             )}
           </div>
         </CardHeader>
@@ -288,13 +290,13 @@ export default function DashboardClient() {
 
       {/* Recentes */}
       <div className="space-y-3">
-        <div className="flex items-end justify-between">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <div className="text-lg font-black text-slate-900">Simulados recentes</div>
             <div className="text-sm text-slate-600">Seus últimos 3 simulados</div>
           </div>
 
-          <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+          <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
             Ver todos
           </Button>
         </div>
@@ -308,7 +310,8 @@ export default function DashboardClient() {
             {recentTop3.map((s) => {
               const title = cleanSessionTitle(s.title);
               const total = safeNum(s.totalQuestions);
-              const answered = safeNum(s.answeredCount);
+              const answeredRaw = safeNum(s.answeredCount);
+              const answered = total > 0 ? Math.min(answeredRaw, total) : answeredRaw;
               const correct = safeNum(s.correctCount);
               const status = s.status ?? "in_progress";
 
@@ -372,7 +375,7 @@ export default function DashboardClient() {
                       </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-col gap-2 sm:flex-row">
                       {status !== "completed" ? (
                         <Button className="flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
                           Continuar
@@ -386,7 +389,7 @@ export default function DashboardClient() {
                       <Button
                         variant="secondary"
                         onClick={() => router.push("/aluno/simulados")}
-                        className="px-4"
+                        className="w-full px-4 sm:w-auto"
                         title="Ver todos"
                       >
                         ⋯

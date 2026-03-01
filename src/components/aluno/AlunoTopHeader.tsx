@@ -41,15 +41,15 @@ export default function AlunoTopHeader({
   }, [user]);
 
   return (
-    <header className="sticky top-0 z-30 backdrop-blur bg-white/70 border-b border-slate-200/70">
-      <div className="flex items-center justify-between px-4 sm:px-6 lg:px-10 py-4">
+    <header className="sticky top-0 z-30 overflow-hidden border-b border-slate-200/70 bg-white/85 backdrop-blur">
+      <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-10">
         {/* Left */}
         <div className="flex items-center gap-3 min-w-0">
           {/* Botão menu (mobile/tablet) */}
           <button
             type="button"
             onClick={onMenuClick}
-            className="lg:hidden inline-flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg text-slate-700 shadow-sm lg:hidden"
             aria-label="Abrir menu"
           >
             ☰
@@ -66,12 +66,12 @@ export default function AlunoTopHeader({
         </div>
 
         {/* Right */}
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 shrink-0 items-center gap-3">
           <div className="hidden sm:block text-sm text-slate-600 truncate max-w-[220px]">
             {user?.email ?? ""}
           </div>
 
-          <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-bold shadow-lg">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white shadow-lg sm:h-10 sm:w-10">
             {initials}
           </div>
         </div>

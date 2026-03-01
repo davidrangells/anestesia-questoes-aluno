@@ -622,7 +622,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                     Descreva o problema:
                   </div>
                   <textarea
-                    className="w-full min-h-[90px] rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-slate-900/10"
+                    className="ui-textarea"
                     placeholder="Ex: enunciado incompleto, alternativa errada, gabarito errado, etc."
                     value={reportText}
                     onChange={(e) => setReportText(e.target.value)}

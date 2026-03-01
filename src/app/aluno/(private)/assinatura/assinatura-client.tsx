@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { doc, getDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
 
 type Entitlement = {
   uid?: string;
@@ -172,19 +173,13 @@ export default function AssinaturaClient() {
             </div>
           </div>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => router.push("/aluno/dashboard")}
-              className="rounded-2xl px-4 py-3 border bg-white font-semibold text-slate-900 hover:bg-slate-50 transition"
-            >
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Button variant="secondary" onClick={() => router.push("/aluno")} className="w-full sm:w-auto">
               Voltar
-            </button>
-            <button
-              onClick={load}
-              className="rounded-2xl px-4 py-3 bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
-            >
+            </Button>
+            <Button onClick={load} className="w-full sm:w-auto">
               Atualizar
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -212,18 +207,12 @@ export default function AssinaturaClient() {
           </div>
 
           <div className="mt-5 flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => router.push("/aluno/perfil")}
-              className="rounded-2xl px-5 py-3 border font-semibold text-slate-900 hover:bg-slate-50 transition"
-            >
+            <Button variant="secondary" onClick={() => router.push("/aluno/perfil")} className="w-full sm:w-auto">
               Ir para Perfil
-            </button>
-            <button
-              onClick={load}
-              className="rounded-2xl px-5 py-3 bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
-            >
+            </Button>
+            <Button onClick={load} className="w-full sm:w-auto">
               Tentar novamente
-            </button>
+            </Button>
           </div>
         </div>
       ) : (
@@ -247,7 +236,7 @@ export default function AssinaturaClient() {
 
             {/* Card principal */}
             <div className="rounded-3xl border bg-white shadow-sm p-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="text-sm text-slate-500">Seu plano</div>
                   <div className="mt-1 text-xl font-black text-slate-900 truncate">{planName}</div>
@@ -300,19 +289,13 @@ export default function AssinaturaClient() {
                   Precisa de ajuda com sua assinatura? Fale com o suporte.
                 </div>
 
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => router.push("/aluno/perfil")}
-                    className="rounded-2xl px-5 py-3 border font-semibold text-slate-900 hover:bg-slate-50 transition"
-                  >
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button variant="secondary" onClick={() => router.push("/aluno/perfil")} className="w-full sm:w-auto">
                     Ver Perfil
-                  </button>
-                  <button
-                    onClick={() => router.push("/aluno/dashboard")}
-                    className="rounded-2xl px-5 py-3 bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
-                  >
-                    Ir ao Dashboard
-                  </button>
+                  </Button>
+                  <Button onClick={() => router.push("/aluno")} className="w-full sm:w-auto">
+                    Ir ao Início
+                  </Button>
                 </div>
               </div>
             </div>
@@ -345,12 +328,9 @@ export default function AssinaturaClient() {
               </div>
             </div>
 
-            <button
-              onClick={() => router.push("/aluno/dashboard")}
-              className="mt-6 w-full rounded-2xl px-5 py-3 bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
-            >
-              Voltar ao Dashboard
-            </button>
+            <Button onClick={() => router.push("/aluno")} className="mt-6 w-full">
+              Voltar ao Início
+            </Button>
           </div>
         </div>
       )}

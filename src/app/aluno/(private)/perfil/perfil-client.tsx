@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
 
 function cn(...xs: Array<string | false | undefined | null>) {
   return xs.filter(Boolean).join(" ");
@@ -62,13 +63,7 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className={cn(
-          "mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none transition",
-          "text-slate-900 placeholder:text-slate-500",
-          disabled
-            ? "bg-slate-50 border-slate-200 text-slate-700"
-            : "bg-white border-slate-200 focus:border-slate-400 focus:ring-4 focus:ring-slate-100"
-        )}
+        className="ui-input mt-2"
       />
     </div>
   );
@@ -236,18 +231,12 @@ export default function PerfilClient() {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={resetPassword}
-              className="rounded-2xl px-4 py-3 border bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
-            >
+            <Button variant="secondary" onClick={resetPassword}>
               Redefinir senha
-            </button>
-            <button
-              onClick={logout}
-              className="rounded-2xl px-4 py-3 bg-slate-900 text-white font-semibold hover:bg-slate-800 transition"
-            >
+            </Button>
+            <Button onClick={logout}>
               Sair
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -256,7 +245,7 @@ export default function PerfilClient() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Card: dados */}
         <div className="lg:col-span-2 rounded-3xl border bg-white shadow-sm p-6">
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4 min-w-0">
               <div className="h-14 w-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black">
                 {initials(displayName || email)}
@@ -268,19 +257,13 @@ export default function PerfilClient() {
             </div>
 
             {!editing ? (
-              <button
-                onClick={startEdit}
-                className="rounded-2xl px-4 py-3 border bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
-              >
+              <Button variant="secondary" onClick={startEdit} className="w-full sm:w-auto">
                 Editar informações
-              </button>
+              </Button>
             ) : (
-              <button
-                onClick={cancelEdit}
-                className="rounded-2xl px-4 py-3 border bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
-              >
+              <Button variant="secondary" onClick={cancelEdit} className="w-full sm:w-auto">
                 Cancelar
-              </button>
+              </Button>
             )}
           </div>
 
@@ -361,19 +344,13 @@ export default function PerfilClient() {
           </div>
 
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
               onClick={onSave}
               disabled={!editing || saving}
-              className={cn(
-                "rounded-2xl px-6 py-3 font-semibold transition",
-                !editing
-                  ? "bg-slate-200 text-slate-700 cursor-not-allowed"
-                  : "bg-blue-600 text-white hover:bg-blue-500",
-                saving ? "opacity-80" : ""
-              )}
+              className={!editing ? "w-full bg-slate-300 text-slate-700 shadow-none hover:bg-slate-300 sm:w-auto" : "w-full sm:w-auto"}
             >
               {saving ? "Salvando…" : "Salvar alterações"}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -394,12 +371,9 @@ export default function PerfilClient() {
             </div>
           </div>
 
-          <button
-            onClick={() => router.push("/aluno")}
-            className="mt-4 w-full rounded-2xl px-4 py-3 border bg-white text-slate-900 font-semibold hover:bg-slate-50 transition"
-          >
-            Voltar ao Dashboard
-          </button>
+          <Button variant="secondary" onClick={() => router.push("/aluno")} className="mt-4 w-full">
+            Voltar ao Início
+          </Button>
         </div>
       </div>
     </div>

@@ -13,10 +13,7 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-
-function cn(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
+import { Button } from "@/components/ui/button";
 
 function toggle(list: string[], value: string) {
   const arr = Array.isArray(list) ? list : [];
@@ -283,7 +280,7 @@ export default function NovoSimuladoClient() {
           </div>
 
           <div className="rounded-3xl border bg-white shadow-sm p-6">
-            <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <div className="font-black text-slate-900">Seleção de Temas</div>
                 <div className="text-sm text-slate-500 mt-1">
@@ -293,7 +290,7 @@ export default function NovoSimuladoClient() {
 
               <button
                 onClick={() => setSelectedTemas([])}
-                className="text-sm font-semibold text-slate-600 hover:text-slate-900"
+                className="text-sm font-semibold text-slate-700 transition hover:text-slate-900"
                 type="button"
               >
                 Limpar
@@ -325,19 +322,14 @@ export default function NovoSimuladoClient() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
                 onClick={createSimulado}
                 disabled={creating}
-                className={cn(
-                  "rounded-2xl px-6 py-3 text-sm font-semibold border transition",
-                  creating
-                    ? "bg-slate-200 text-slate-500 border-slate-200 cursor-not-allowed"
-                    : "bg-slate-900 text-white border-slate-900 hover:bg-slate-800"
-                )}
+                className={!creating ? "w-full sm:w-auto" : "w-full bg-slate-300 text-slate-700 shadow-none hover:bg-slate-300 sm:w-auto"}
                 type="button"
               >
                 {creating ? "Criando…" : "Criar simulado"}
-              </button>
+              </Button>
             </div>
 
             <div className="mt-2 text-xs text-slate-500 truncate">{titleDisplay}</div>

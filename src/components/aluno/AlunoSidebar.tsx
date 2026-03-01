@@ -78,7 +78,7 @@ export default function AlunoSidebar({
       className={cn(
         "shrink-0 bg-white flex flex-col",
         isDrawer
-          ? "w-[85vw] max-w-[320px] h-full"
+          ? "h-full w-full"
           : "hidden lg:flex w-[320px] min-h-screen sticky top-0 border-r"
       )}
     >

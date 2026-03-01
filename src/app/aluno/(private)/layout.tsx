@@ -14,17 +14,17 @@ export default function AlunoPrivateLayout({
 
   return (
     <AlunoGuard>
-      <div className="min-h-screen bg-[radial-gradient(1200px_circle_at_20%_0%,rgba(15,23,42,0.06),transparent_55%),radial-gradient(900px_circle_at_100%_20%,rgba(2,132,199,0.08),transparent_45%)]">
+      <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(1200px_circle_at_20%_0%,rgba(15,23,42,0.06),transparent_55%),radial-gradient(900px_circle_at_100%_20%,rgba(2,132,199,0.08),transparent_45%)]">
         <div className="flex min-h-screen">
           
           {/* Sidebar desktop */}
           <AlunoSidebar variant="desktop" />
 
           {/* Conteúdo */}
-          <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex min-w-0 flex-1 flex-col overflow-x-hidden">
             <AlunoTopHeader onMenuClick={() => setMobileOpen(true)} />
 
-            <main className="flex-1 min-w-0">
+            <main className="min-w-0 flex-1 overflow-x-hidden">
               <div className="px-4 sm:px-6 lg:px-10 py-8">
                 <div className="mx-auto w-full max-w-[1200px]">
                   {children}
@@ -50,7 +50,7 @@ export default function AlunoPrivateLayout({
                   Menu
                 </div>
                 <button
-                  className="h-10 w-10 rounded-xl border border-slate-200"
+                  className="h-10 w-10 rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50"
                   onClick={() => setMobileOpen(false)}
                 >
                   ✕

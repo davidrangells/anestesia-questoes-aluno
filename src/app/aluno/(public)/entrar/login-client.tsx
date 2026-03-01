@@ -144,7 +144,7 @@ export default function LoginClient() {
               type="email"
               autoComplete="email"
               placeholder="seuemail@..."
-              className="w-full rounded-2xl border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              className="ui-input"
             />
           </div>
 
@@ -156,24 +156,24 @@ export default function LoginClient() {
               type="password"
               autoComplete="current-password"
               placeholder="••••••••"
-              className="w-full rounded-2xl border px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              className="ui-input"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_40px_rgba(2,6,23,0.18)] transition hover:bg-slate-800 disabled:opacity-60"
           >
             {loading ? "Entrando..." : "Entrar"}
           </button>
 
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               type="button"
               onClick={onForgotPassword}
               disabled={loading}
-              className="text-xs font-semibold text-slate-700 hover:underline disabled:opacity-60"
+              className="text-sm font-semibold text-slate-700 transition hover:text-slate-900 hover:underline disabled:opacity-60"
             >
               Esqueci minha senha
             </button>
@@ -183,7 +183,7 @@ export default function LoginClient() {
                 type="button"
                 onClick={onLogout}
                 disabled={loading}
-                className="text-xs font-semibold text-slate-700 hover:underline disabled:opacity-60"
+                className="text-sm font-semibold text-slate-700 transition hover:text-slate-900 hover:underline disabled:opacity-60"
               >
                 Sair / Trocar conta
               </button>
