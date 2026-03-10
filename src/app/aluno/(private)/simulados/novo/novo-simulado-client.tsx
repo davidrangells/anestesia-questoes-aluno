@@ -114,6 +114,8 @@ export default function NovoSimuladoClient() {
   const [selectedNiveis, setSelectedNiveis] = useState<string[]>([]);
   const [selectedTemas, setSelectedTemas] = useState<string[]>([]);
   const [qtd, setQtd] = useState<number>(10);
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [themeQuery, setThemeQuery] = useState("");
 
   useEffect(() => {
     const run = async () => {
@@ -195,6 +197,12 @@ export default function NovoSimuladoClient() {
     const cleaned = normalizeTitleParts(rest);
     return cleaned.length ? `${main} • ${cleaned.join(" • ")}` : main || "Simulado";
   }, [title]);
+
+  const filteredTemas = useMemo(() => {
+    const q = themeQuery.trim().toLowerCase();
+    if (!q) return temas;
+    return temas.filter((t) => t.toLowerCase().includes(q));
+  }, [temas, themeQuery]);
 
   async function pickQuestions(): Promise<string[]> {
     const snap = await getDocs(collection(db, "questionsBank"));
@@ -367,7 +375,10 @@ export default function NovoSimuladoClient() {
               </div>
 
               <button
-                onClick={() => setSelectedTemas([])}
+                onClick={() => {
+                  setSelectedTemas([]);
+                  setThemeQuery("");
+                }}
                 className="text-sm font-semibold text-slate-700 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
                 type="button"
               >
@@ -375,21 +386,84 @@ export default function NovoSimuladoClient() {
               </button>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {temas.map((t) => {
-                const active = selectedTemas.includes(t);
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setSelectedTemas((prev) => toggle(prev, t))}
-                    className={`${pillBase} ${active ? pillOn : pillOff}`}
-                    type="button"
-                    title={t}
-                  >
-                    {t}
-                  </button>
-                );
-              })}
+            <div className="mt-4 space-y-3">
+              <button
+                type="button"
+                onClick={() => setThemePickerOpen((v) => !v)}
+                className="flex w-full items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-semibold text-slate-800 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:hover:bg-slate-800"
+              >
+                <span className="truncate">
+                  {selectedTemas.length
+                    ? `${selectedTemas.length} tema(s) selecionado(s)`
+                    : "Selecionar temas"}
+                </span>
+                <span className="ml-3 shrink-0 text-slate-500 dark:text-slate-400">
+                  {themePickerOpen ? "▲" : "▼"}
+                </span>
+              </button>
+
+              {themePickerOpen ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900">
+                  <input
+                    type="text"
+                    value={themeQuery}
+                    onChange={(e) => setThemeQuery(e.target.value)}
+                    placeholder="Buscar tema..."
+                    className="ui-input"
+                  />
+
+                  <div className="mt-3 max-h-64 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700">
+                    {filteredTemas.length ? (
+                      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                        {filteredTemas.map((t) => {
+                          const active = selectedTemas.includes(t);
+                          return (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setSelectedTemas((prev) => toggle(prev, t))}
+                              className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-slate-800 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
+                            >
+                              <span className="min-w-0 truncate">{t}</span>
+                              <span
+                                className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
+                                  active
+                                    ? "border-blue-500 bg-blue-500 text-white"
+                                    : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
+                                }`}
+                              >
+                                {active ? "Selecionado" : "Selecionar"}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="px-3 py-4 text-sm text-slate-500 dark:text-slate-400">
+                        Nenhum tema encontrado.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+
+              {selectedTemas.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedTemas.map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setSelectedTemas((prev) => prev.filter((x) => x !== t))}
+                      className="inline-flex items-center gap-2 rounded-full border border-blue-500 bg-blue-500 px-3 py-1 text-xs font-semibold text-white"
+                      title={`Remover ${t}`}
+                    >
+                      <span className="max-w-[220px] truncate">{t}</span>
+                      <span>✕</span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+
               {temas.length === 0 ? (
                 <div className="text-sm text-slate-500 dark:text-slate-400">Nenhum tema carregado (ok por enquanto).</div>
               ) : null}
