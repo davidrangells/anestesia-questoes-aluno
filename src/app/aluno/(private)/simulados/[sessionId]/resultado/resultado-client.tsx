@@ -3,20 +3,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs } from "firebase/firestore";
 
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 type SessionDoc = {
   id: string;
-  title?: string;
-  titleDisplay?: string;
   status?: "in_progress" | "completed";
   totalQuestions?: number;
   answeredCount?: number;
   correctCount?: number;
   scorePercent?: number;
+  createdAt?: unknown;
+  filters?: {
+    temas?: unknown;
+  };
 };
 
 function getErrorMessage(error: unknown, fallback: string) {
@@ -32,15 +34,36 @@ function formatPct(v: number) {
   if (!Number.isFinite(v)) return "—";
   return `${Math.round(v)}%`;
 }
-function cleanTitle(raw?: string) {
-  const base = String(raw ?? "").trim();
-  if (!base) return "Simulado";
-  const parts = base.split("•").map((p) => p.trim()).filter(Boolean);
-  const main = parts[0] || "Simulado";
-  const rest = parts
-    .slice(1)
-    .filter((p) => p.toLowerCase() !== "todos" && p.toLowerCase() !== "todas");
-  return rest.length ? `${main} • ${rest.join(" • ")}` : main;
+type TimestampLike = { toMillis?: () => number };
+
+function toMillis(value: unknown): number {
+  if (!value) return 0;
+  if (
+    typeof value === "object" &&
+    value !== null &&
+    "toMillis" in value &&
+    typeof (value as TimestampLike).toMillis === "function"
+  ) {
+    return (value as TimestampLike).toMillis!();
+  }
+  if (typeof value === "string" || typeof value === "number" || value instanceof Date) {
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  return 0;
+}
+
+function toStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+}
+
+function formatStatus(status: SessionDoc["status"]) {
+  if (status === "completed") return "Completo";
+  if (status === "in_progress") return "Em andamento";
+  return "—";
 }
 
 export default function ResultadoClient({ sessionId }: { sessionId: string }) {
@@ -49,6 +72,7 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [session, setSession] = useState<SessionDoc | null>(null);
+  const [simuladoNumero, setSimuladoNumero] = useState<number | null>(null);
 
   const load = useCallback(async () => {
     const u = auth.currentUser;
@@ -62,10 +86,21 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
     setErr("");
 
     try {
-      const ref = doc(db, "users", u.uid, "sessions", sessionId);
+      const sessionsRef = collection(db, "users", u.uid, "sessions");
+      const ref = doc(sessionsRef, sessionId);
       const snap = await getDoc(ref);
       if (!snap.exists()) throw new Error("Sessão não encontrada.");
       setSession({ id: snap.id, ...(snap.data() as Omit<SessionDoc, "id">) });
+
+      const listSnap = await getDocs(sessionsRef);
+      const allSessions = listSnap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as Omit<SessionDoc, "id">),
+      }));
+
+      allSessions.sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
+      const index = allSessions.findIndex((item) => item.id === sessionId);
+      setSimuladoNumero(index >= 0 ? index + 1 : null);
     } catch (error: unknown) {
       console.error(error);
       setErr(getErrorMessage(error, "Falha ao carregar resultado."));
@@ -91,6 +126,13 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
         ? (correct / total) * 100
         : 0;
     return { total, answered, correct, errors, score };
+  }, [session]);
+
+  const temasResumo = useMemo(() => {
+    const temas = toStringList(session?.filters?.temas);
+    if (!temas.length) return "Todos os temas selecionados";
+    if (temas.length <= 3) return temas.join(", ");
+    return `${temas.slice(0, 3).join(", ")}...`;
   }, [session]);
 
   if (loading) {
@@ -127,7 +169,7 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
 
   if (!session) return null;
 
-  const title = session.titleDisplay?.trim() || cleanTitle(session.title);
+  const title = `Simulado ${String(simuladoNumero ?? 1).padStart(2, "0")}`;
 
   return (
     <div className="space-y-6">
@@ -139,8 +181,12 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
             <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               Status:{" "}
               <span className="font-semibold text-slate-900 dark:text-slate-100">
-                {session.status ?? "completed"}
+                {formatStatus(session.status)}
               </span>
+            </div>
+            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Temas:{" "}
+              <span className="font-semibold text-slate-900 dark:text-slate-100">{temasResumo}</span>
             </div>
           </div>
 

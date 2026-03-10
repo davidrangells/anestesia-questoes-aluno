@@ -193,6 +193,10 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [reportText, setReportText] = useState("");
   const [reportSending, setReportSending] = useState(false);
+  const [reportNotice, setReportNotice] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   const isReviewMode = session?.status === "completed";
   const shouldShowFeedback = confirmed || isSubmitting || isReviewMode;
@@ -328,6 +332,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   useEffect(() => {
     setReportOpen(false);
     setReportText("");
+    setReportNotice(null);
 
     if (!currentQuestion) {
       setSelectedOptionId(null);
@@ -443,6 +448,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setIsCorrect(null);
     setReportOpen(false);
     setReportText("");
+    setReportNotice(null);
   }
 
   function onNext() {
@@ -456,6 +462,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setIsCorrect(null);
     setReportOpen(false);
     setReportText("");
+    setReportNotice(null);
   }
 
   async function onFinish() {
@@ -486,6 +493,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     if (!msg) return;
 
     setReportSending(true);
+    setReportNotice(null);
     try {
       await addDoc(collection(db, "erros_reportados"), {
         createdAt: serverTimestamp(),
@@ -502,10 +510,16 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
       setReportOpen(false);
       setReportText("");
-      alert("Erro reportado. Obrigado!");
+      setReportNotice({
+        type: "success",
+        text: "Erro reportado com sucesso. Obrigado pelo feedback.",
+      });
     } catch (e) {
       console.error(e);
-      alert("Não foi possível reportar agora.");
+      setReportNotice({
+        type: "error",
+        text: "Não foi possível reportar agora. Tente novamente em instantes.",
+      });
     } finally {
       setReportSending(false);
     }
@@ -668,10 +682,30 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
               {/* ✅ reportar erro */}
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setReportOpen((v) => !v)}>
+                <Button
+                  className="w-full sm:w-auto"
+                  variant="secondary"
+                  onClick={() => {
+                    setReportNotice(null);
+                    setReportOpen((v) => !v);
+                  }}
+                >
                   Reportar erro
                 </Button>
               </div>
+
+              {reportNotice ? (
+                <div
+                  className={cn(
+                    "rounded-2xl border px-4 py-3 text-sm font-semibold",
+                    reportNotice.type === "success"
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+                      : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300"
+                  )}
+                >
+                  {reportNotice.text}
+                </div>
+              ) : null}
 
               {reportOpen ? (
                 <div className="rounded-2xl border bg-slate-50 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-800">
