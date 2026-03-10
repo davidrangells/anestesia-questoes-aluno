@@ -250,6 +250,27 @@ export default function DashboardClient() {
   const weakThemes = useMemo(() => [...themePerformance].sort((a, b) => a.accuracy - b.accuracy).slice(0, 3), [themePerformance]);
   const needsFocus = weakThemes[0] ?? null;
   const bestTheme = topThemes[0] ?? null;
+  const performanceSeries = useMemo(() => {
+    return [...sessions]
+      .slice(0, 8)
+      .reverse()
+      .map((s) => {
+        const total = safeNum(s.totalQuestions);
+        const answered = total > 0 ? Math.min(safeNum(s.answeredCount), total) : safeNum(s.answeredCount);
+        const pct =
+          s.status === "completed"
+            ? safeNum(s.scorePercent)
+            : total > 0
+            ? (answered / total) * 100
+            : 0;
+        const number = sessionNumberById.get(s.id) ?? 1;
+        return {
+          id: s.id,
+          label: `S${String(number).padStart(2, "0")}`,
+          value: Math.max(0, Math.min(100, pct)),
+        };
+      });
+  }, [sessions, sessionNumberById]);
 
   if (loading) {
     return (
@@ -325,17 +346,20 @@ export default function DashboardClient() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <div className="flex justify-end">
-        <Button variant="secondary" onClick={load} className="w-full sm:w-auto">
-          Atualizar
-        </Button>
-      </div>
-
       {/* Último simulado */}
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Último simulado</div>
+            <div className="flex items-center gap-2">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Último simulado</div>
+              <button
+                type="button"
+                onClick={load}
+                className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
+              >
+                Atualizar
+              </button>
+            </div>
             <div className="mt-1 text-xl font-black text-slate-900 truncate dark:text-slate-100">{lastTitle}</div>
 
             {lastSession ? (
@@ -365,7 +389,7 @@ export default function DashboardClient() {
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-            <div className="rounded-2xl border bg-slate-50 px-4 py-3 sm:min-w-[160px] dark:border-slate-700 dark:bg-slate-800">
+            <div className="rounded-2xl border bg-slate-50 px-4 py-3 sm:min-w-[150px] dark:border-slate-700 dark:bg-slate-800">
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {lastStatus === "completed" ? "Nota" : "Progresso"}
               </div>
@@ -373,18 +397,18 @@ export default function DashboardClient() {
             </div>
 
             {lastSession ? (
-              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:grid-cols-2">
                 {lastStatus !== "completed" ? (
-                  <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${lastSession.id}`)}>
+                  <Button className="w-full" onClick={() => router.push(`/aluno/simulados/${lastSession.id}`)}>
                     Continuar
                   </Button>
                 ) : (
-                  <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${lastSession.id}/resultado`)}>
+                  <Button className="w-full" onClick={() => router.push(`/aluno/simulados/${lastSession.id}/resultado`)}>
                     Ver resultado
                   </Button>
                 )}
 
-                <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
+                <Button className="w-full" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
                   Ver todos
                 </Button>
               </div>
@@ -395,6 +419,80 @@ export default function DashboardClient() {
             )}
           </div>
         </CardHeader>
+      </Card>
+
+      {/* Desempenho */}
+      <Card>
+        <CardHeader>
+          <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">Desempenho recente</div>
+          <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">Evolução dos últimos simulados</div>
+        </CardHeader>
+        <CardBody>
+          {performanceSeries.length < 2 ? (
+            <div className="text-sm text-slate-600 dark:text-slate-300">
+              Complete mais simulados para visualizar o gráfico de desempenho.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div className="overflow-x-auto">
+                <svg viewBox="0 0 520 180" className="h-44 min-w-[520px] w-full">
+                  <defs>
+                    <linearGradient id="aqLine" x1="0" x2="0" y1="0" y2="1">
+                      <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
+                      <stop offset="100%" stopColor="#2563eb" stopOpacity="1" />
+                    </linearGradient>
+                  </defs>
+                  {[0, 25, 50, 75, 100].map((tick) => {
+                    const y = 12 + (100 - tick) * 1.35;
+                    return (
+                      <line
+                        key={tick}
+                        x1="20"
+                        x2="500"
+                        y1={y}
+                        y2={y}
+                        stroke="currentColor"
+                        className="text-slate-300 dark:text-slate-700"
+                        strokeDasharray="4 4"
+                      />
+                    );
+                  })}
+                  <polyline
+                    fill="none"
+                    stroke="url(#aqLine)"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    points={performanceSeries
+                      .map((item, index) => {
+                        const step = performanceSeries.length > 1 ? 480 / (performanceSeries.length - 1) : 0;
+                        const x = 20 + index * step;
+                        const y = 12 + (100 - item.value) * 1.35;
+                        return `${x},${y}`;
+                      })
+                      .join(" ")}
+                  />
+                  {performanceSeries.map((item, index) => {
+                    const step = performanceSeries.length > 1 ? 480 / (performanceSeries.length - 1) : 0;
+                    const x = 20 + index * step;
+                    const y = 12 + (100 - item.value) * 1.35;
+                    return (
+                      <g key={item.id}>
+                        <circle cx={x} cy={y} r="4.5" fill="#0f172a" className="dark:fill-slate-100" />
+                        <text x={x} y="170" textAnchor="middle" className="fill-slate-500 dark:fill-slate-400 text-[11px]">
+                          {item.label}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">
+                Linha de tendência por nota/progresso dos últimos simulados.
+              </div>
+            </div>
+          )}
+        </CardBody>
       </Card>
 
       {/* Diagnóstico */}
