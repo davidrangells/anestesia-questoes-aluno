@@ -553,12 +553,12 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   return (
     <div className="space-y-4">
       <Card>
-        <CardHeader>
-          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pergunta</div>
-          <div className="mt-2 text-[15px] leading-7 text-slate-900 dark:text-slate-100">{statement}</div>
+        <CardHeader className="space-y-2">
+          <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Pergunta</div>
+          <div className="text-[15px] leading-7 text-slate-900 dark:text-slate-100">{statement}</div>
         </CardHeader>
 
-        <CardBody className="space-y-3">
+        <CardBody className="space-y-4">
           {currentQuestion.options?.map((opt) => {
             const isSelected = selectedOptionId === opt.id;
 
@@ -609,7 +609,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
           })}
 
           {!showResultPanel ? (
-            <div className="pt-3">
+            <div className="pt-2">
               <Button
                 className="w-full"
                 disabled={!selectedOptionId || isSubmitting}
@@ -619,10 +619,10 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               </Button>
             </div>
           ) : (
-            <div className="pt-3 space-y-3">
+            <div className="pt-2 space-y-4">
               <div
                 className={cn(
-                  "rounded-2xl border px-4 py-3",
+                  "rounded-2xl border px-5 py-4",
                   hasSavedAnswer
                     ? isCorrect
                       ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
@@ -649,7 +649,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
               {/* ✅ comentário */}
               {explanationText ? (
-                <div className="rounded-2xl border bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                <div className="rounded-2xl border bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
                   <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Comentário</div>
                   <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap dark:text-slate-300">
                     {explanationText}
@@ -658,7 +658,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               ) : null}
 
               {referenceText ? (
-                <div className="rounded-2xl border bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                <div className="rounded-2xl border bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
                   <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Referência</div>
                   <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words dark:text-slate-300">
                     {referenceText}
