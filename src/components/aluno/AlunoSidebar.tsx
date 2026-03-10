@@ -40,8 +40,8 @@ function Item({
       className={cn(
         "group flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold transition",
         active
-          ? "bg-slate-900 text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)]"
-          : "text-slate-700 hover:bg-slate-100"
+          ? "bg-slate-900 text-white shadow-[0_10px_30px_rgba(15,23,42,0.25)] dark:bg-gradient-to-r dark:from-blue-500 dark:to-indigo-500 dark:text-white dark:shadow-[0_20px_45px_rgba(37,99,235,0.35)]"
+          : "text-slate-700 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800/70"
       )}
     >
       <span
@@ -78,16 +78,16 @@ export default function AlunoSidebar({
   return (
     <aside
       className={cn(
-        "shrink-0 bg-white text-slate-900 flex flex-col dark:bg-slate-900 dark:text-slate-100",
+        "shrink-0 bg-white text-slate-900 flex flex-col dark:bg-[#030b21] dark:text-slate-100",
         isDrawer
           ? "h-full w-full"
-          : "hidden lg:flex w-[320px] min-h-screen sticky top-0 border-r border-slate-200 dark:border-slate-800"
+          : "hidden lg:flex w-[320px] min-h-screen sticky top-0 border-r border-slate-200 dark:border-slate-800/80"
       )}
     >
       {/* Brand */}
-      <div className="px-5 py-5 border-b border-slate-200 dark:border-slate-800">
+      <div className="px-5 py-5 border-b border-slate-200 dark:border-slate-800/80">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black dark:bg-slate-100 dark:text-slate-900">
+          <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black dark:border dark:border-slate-700/80 dark:bg-[#061738] dark:text-blue-300">
             AQ
           </div>
           <div className="min-w-0">
@@ -101,6 +101,7 @@ export default function AlunoSidebar({
 
       {/* Nav */}
       <nav className="px-4 py-4 flex flex-col gap-2">
+        <div className="px-2 text-[11px] font-bold tracking-[0.22em] text-slate-400 dark:text-slate-500">NAVEGAÇÃO</div>
         <Item href="/aluno" label="Início" icon="🏠" onNavigate={onNavigate} />
         <Item
           href="/aluno/simulados"
@@ -122,18 +123,40 @@ export default function AlunoSidebar({
         />
       </nav>
 
-      <div className="mt-auto space-y-3 border-t border-slate-200 bg-white px-4 py-4 dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700"
-        >
-          {theme === "dark" ? "☀️ Tema claro" : "🌙 Tema escuro"}
-        </button>
+      <div className="mt-auto space-y-3 border-t border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-[#030b21]">
+        <div className="rounded-2xl border border-slate-200 p-2 dark:border-slate-800/80 dark:bg-[#04102a]">
+          <div className="mb-2 px-2 text-[11px] font-bold tracking-[0.22em] text-slate-400 dark:text-slate-500">TEMA</div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => theme !== "light" && toggleTheme()}
+              className={cn(
+                "rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                theme === "light"
+                  ? "border-slate-300 bg-white text-slate-900 shadow-sm"
+                  : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              )}
+            >
+              Claro
+            </button>
+            <button
+              type="button"
+              onClick={() => theme !== "dark" && toggleTheme()}
+              className={cn(
+                "rounded-xl border px-3 py-2 text-sm font-semibold transition",
+                theme === "dark"
+                  ? "border-blue-400/40 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-[0_10px_30px_rgba(37,99,235,0.35)]"
+                  : "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+              )}
+            >
+              Escuro
+            </button>
+          </div>
+        </div>
 
         <button
           onClick={logout}
-          className="w-full rounded-2xl px-4 py-3 text-sm bg-slate-900 text-white hover:bg-slate-800 transition font-semibold dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+          className="w-full rounded-2xl px-4 py-3 text-sm bg-slate-900 text-white hover:bg-slate-800 transition font-semibold dark:border dark:border-slate-700 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
         >
           Sair
         </button>

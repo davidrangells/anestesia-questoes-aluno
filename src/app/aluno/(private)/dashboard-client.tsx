@@ -266,24 +266,24 @@ export default function DashboardClient() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="text-3xl font-black text-slate-900">Início</div>
-          <div className="text-sm text-slate-600 mt-1">Carregando seus dados…</div>
+          <div className="text-3xl font-black text-slate-900 dark:text-slate-100">Início</div>
+          <div className="text-sm text-slate-600 mt-1 dark:text-slate-400">Carregando seus dados…</div>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-3">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-3xl border bg-white p-6 shadow-sm">
-              <div className="h-3 w-28 rounded-full bg-slate-200 animate-pulse" />
-              <div className="mt-4 h-8 w-20 rounded-full bg-slate-200 animate-pulse" />
-              <div className="mt-3 h-3 w-40 rounded-full bg-slate-200 animate-pulse" />
+            <div key={i} className="rounded-3xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+              <div className="h-3 w-28 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
+              <div className="mt-4 h-8 w-20 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
+              <div className="mt-3 h-3 w-40 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
             </div>
           ))}
         </div>
 
-        <div className="rounded-3xl border bg-white p-6 shadow-sm">
-          <div className="h-3 w-36 rounded-full bg-slate-200 animate-pulse" />
-          <div className="mt-4 h-10 w-72 rounded-full bg-slate-200 animate-pulse" />
-          <div className="mt-3 h-3 w-56 rounded-full bg-slate-200 animate-pulse" />
+        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="h-3 w-36 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
+          <div className="mt-4 h-10 w-72 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
+          <div className="mt-3 h-3 w-56 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
         </div>
       </div>
     );
@@ -293,12 +293,12 @@ export default function DashboardClient() {
     return (
       <div className="space-y-6">
         <div>
-          <div className="text-3xl font-black text-slate-900">Início</div>
-          <div className="text-sm text-slate-600 mt-1">Visão geral do seu desempenho</div>
+          <div className="text-3xl font-black text-slate-900 dark:text-slate-100">Início</div>
+          <div className="text-sm text-slate-600 mt-1 dark:text-slate-400">Visão geral do seu desempenho</div>
         </div>
 
-        <div className="rounded-3xl border bg-white p-6 shadow-sm">
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-700 font-semibold">
+        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-rose-700 font-semibold dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
             {err}
           </div>
 
@@ -338,8 +338,8 @@ export default function DashboardClient() {
     <div className="space-y-6 overflow-x-hidden">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <div className="text-3xl font-black text-slate-900">Início</div>
-          <div className="text-sm text-slate-600 mt-1">Visão geral do seu desempenho</div>
+          <div className="text-3xl font-black text-slate-900 dark:text-slate-100">Início</div>
+          <div className="text-sm text-slate-600 mt-1 dark:text-slate-400">Visão geral do seu desempenho</div>
         </div>
 
         <Button variant="secondary" onClick={load} className="w-full sm:w-auto">
@@ -351,41 +351,41 @@ export default function DashboardClient() {
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-slate-500">Último simulado</div>
-            <div className="mt-1 text-xl font-black text-slate-900 truncate">{lastTitle}</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Último simulado</div>
+            <div className="mt-1 text-xl font-black text-slate-900 truncate dark:text-slate-100">{lastTitle}</div>
 
             {lastSession ? (
-              <div className="mt-2 text-sm text-slate-600">
+              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Status:{" "}
-                <span className="font-semibold text-slate-900">
+                <span className="font-semibold text-slate-900 dark:text-slate-100">
                   {lastStatus === "completed" ? "Concluído" : "Em andamento"}
                 </span>{" "}
                 • Respondidas:{" "}
-                <span className="font-semibold text-slate-900">{lastAnswered}</span>
+                <span className="font-semibold text-slate-900 dark:text-slate-100">{lastAnswered}</span>
                 {lastTotal ? (
                   <>
                     {" "}
-                    / <span className="font-semibold text-slate-900">{lastTotal}</span>
+                    / <span className="font-semibold text-slate-900 dark:text-slate-100">{lastTotal}</span>
                   </>
                 ) : null}
                 <>
                   {" "}
-                  • Acertos: <span className="font-semibold text-slate-900">{lastCorrect}</span>
+                  • Acertos: <span className="font-semibold text-slate-900 dark:text-slate-100">{lastCorrect}</span>
                 </>
               </div>
             ) : (
-              <div className="mt-2 text-sm text-slate-600">
+              <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">
                 Você ainda não iniciou nenhum simulado.
               </div>
             )}
           </div>
 
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-            <div className="rounded-2xl border bg-slate-50 px-4 py-3 sm:min-w-[160px]">
-              <div className="text-xs font-semibold text-slate-500">
+            <div className="rounded-2xl border bg-slate-50 px-4 py-3 sm:min-w-[160px] dark:border-slate-700 dark:bg-slate-800">
+              <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                 {lastStatus === "completed" ? "Nota" : "Progresso"}
               </div>
-              <div className="mt-1 text-2xl font-black text-slate-900">{lastScore}</div>
+              <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{lastScore}</div>
             </div>
 
             {lastSession ? (
@@ -510,8 +510,8 @@ export default function DashboardClient() {
       <div className="space-y-3">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <div className="text-lg font-black text-slate-900">Simulados recentes</div>
-            <div className="text-sm text-slate-600">Seus últimos 3 simulados</div>
+            <div className="text-lg font-black text-slate-900 dark:text-slate-100">Simulados recentes</div>
+            <div className="text-sm text-slate-600 dark:text-slate-400">Seus últimos 3 simulados</div>
           </div>
 
           <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
@@ -520,7 +520,7 @@ export default function DashboardClient() {
         </div>
 
         {recentTop3.length === 0 ? (
-          <div className="rounded-3xl border bg-white p-6 shadow-sm text-slate-600">
+          <div className="rounded-3xl border bg-white p-6 shadow-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300">
             Você ainda não iniciou nenhum simulado.
           </div>
         ) : (
@@ -542,8 +542,8 @@ export default function DashboardClient() {
 
               const badgeCls =
                 status === "completed"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                  : "bg-amber-50 text-amber-700 border-amber-200";
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30"
+                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30";
 
               const badgeText = status === "completed" ? "Concluído" : "Em andamento";
 
@@ -552,8 +552,8 @@ export default function DashboardClient() {
                   <CardHeader className="space-y-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-500">Simulado</div>
-                        <div className="mt-1 font-black text-slate-900 truncate">{title}</div>
+                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Simulado</div>
+                        <div className="mt-1 font-black text-slate-900 truncate dark:text-slate-100">{title}</div>
                       </div>
 
                       <span
@@ -566,30 +566,30 @@ export default function DashboardClient() {
                       </span>
                     </div>
 
-                    <div className="rounded-2xl border bg-slate-50 px-4 py-3">
+                    <div className="rounded-2xl border bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
                       <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs font-semibold text-slate-500">
+                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {status === "completed" ? "Nota" : "Progresso"}
                         </div>
-                        <div className="text-xs font-semibold text-slate-600">
+                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
                           {answered}/{total || "—"}
                         </div>
                       </div>
 
-                      <div className="mt-1 text-2xl font-black text-slate-900">
+                      <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
                         {formatPct(pct)}
                       </div>
 
-                      <div className="mt-3 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                      <div className="mt-3 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
                         <div
-                          className="h-full rounded-full bg-slate-900 transition-all"
+                          className="h-full rounded-full bg-slate-900 transition-all dark:bg-slate-100"
                           style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
                         />
                       </div>
 
-                      <div className="mt-2 text-xs text-slate-600">
+                      <div className="mt-2 text-xs text-slate-600 dark:text-slate-300">
                         Acertos:{" "}
-                        <span className="font-semibold text-slate-900">{correct}</span>
+                        <span className="font-semibold text-slate-900 dark:text-slate-100">{correct}</span>
                       </div>
                     </div>
 
@@ -625,16 +625,16 @@ export default function DashboardClient() {
       <div className="grid gap-3 sm:grid-cols-3">
         <Card>
           <CardHeader className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500">Progresso</div>
-            <div className="text-2xl font-black text-slate-900">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Progresso</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
               {stats.totalQuestoes > 0 ? formatPct(stats.progressoPct) : "—"}
             </div>
-            <div className="text-xs text-slate-600">{progressoLabel}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-300">{progressoLabel}</div>
           </CardHeader>
           <CardBody>
-            <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
               <div
-                className="h-full rounded-full bg-slate-900 transition-all"
+                className="h-full rounded-full bg-slate-900 transition-all dark:bg-slate-100"
                 style={{ width: `${Math.min(100, Math.max(0, stats.progressoPct))}%` }}
               />
             </div>
@@ -643,28 +643,28 @@ export default function DashboardClient() {
 
         <Card>
           <CardHeader className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500">Questões resolvidas</div>
-            <div className="text-2xl font-black text-slate-900">{resolvidasLabel}</div>
-            <div className="text-xs text-slate-600">Total confirmadas</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Questões resolvidas</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{resolvidasLabel}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-300">Total confirmadas</div>
           </CardHeader>
           <CardBody>
-            <div className="rounded-2xl border bg-slate-50 p-3">
-              <div className="text-[11px] font-semibold text-slate-500">Acertos</div>
-              <div className="mt-1 text-lg font-black text-slate-900">{stats.acertos}</div>
+            <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Acertos</div>
+              <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">{stats.acertos}</div>
             </div>
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500">Aproveitamento</div>
-            <div className="text-2xl font-black text-slate-900">{aproveitamentoLabel}</div>
-            <div className="text-xs text-slate-600">Base: {stats.respondidas}</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Aproveitamento</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{aproveitamentoLabel}</div>
+            <div className="text-xs text-slate-600 dark:text-slate-300">Base: {stats.respondidas}</div>
           </CardHeader>
           <CardBody>
-            <div className="rounded-2xl border bg-slate-50 p-3">
-              <div className="text-[11px] font-semibold text-slate-500">Concluídos</div>
-              <div className="mt-1 text-lg font-black text-slate-900">
+            <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Concluídos</div>
+              <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
                 {stats.concluidos} / {stats.totalSimulados}
               </div>
             </div>

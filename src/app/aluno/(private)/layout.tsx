@@ -16,7 +16,7 @@ export default function AlunoPrivateLayout({
   return (
     <AlunoThemeProvider>
       <AlunoGuard>
-        <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(1200px_circle_at_20%_0%,rgba(15,23,42,0.06),transparent_55%),radial-gradient(900px_circle_at_100%_20%,rgba(2,132,199,0.08),transparent_45%)] dark:bg-[radial-gradient(1200px_circle_at_20%_0%,rgba(56,189,248,0.10),transparent_55%),radial-gradient(900px_circle_at_100%_20%,rgba(30,41,59,0.40),transparent_45%)]">
+        <div className="min-h-screen overflow-x-hidden bg-[radial-gradient(1300px_circle_at_18%_0%,rgba(15,23,42,0.08),transparent_55%),radial-gradient(950px_circle_at_100%_20%,rgba(2,132,199,0.10),transparent_45%)] dark:bg-[radial-gradient(1300px_circle_at_18%_0%,rgba(29,78,216,0.28),transparent_55%),radial-gradient(950px_circle_at_100%_20%,rgba(15,23,42,0.75),transparent_45%),linear-gradient(180deg,#020817_0%,#050d24_100%)]">
           <div className="flex min-h-screen">
             
             {/* Sidebar desktop */}
@@ -46,13 +46,13 @@ export default function AlunoPrivateLayout({
               />
 
               {/* painel lateral */}
-              <div className="absolute left-0 top-0 flex h-full w-[85vw] max-w-[320px] flex-col bg-white shadow-2xl dark:bg-slate-900">
-                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+              <div className="absolute left-0 top-0 flex h-full w-[85vw] max-w-[320px] flex-col bg-white shadow-2xl dark:bg-[#030b21]">
+                <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-800/80">
                   <div className="text-sm font-black text-slate-900 dark:text-slate-100">
                     Menu
                   </div>
                   <button
-                    className="h-10 w-10 rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className="h-10 w-10 rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-[#061738] dark:text-slate-200 dark:hover:bg-slate-800"
                     onClick={() => setMobileOpen(false)}
                   >
                     ✕
