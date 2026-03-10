@@ -30,6 +30,7 @@ type SessionDoc = {
   correctCount?: number;
   scorePercent?: number;
   updatedAt?: unknown;
+  createdAt?: unknown;
 };
 
 type TimestampLike = {
@@ -62,6 +63,23 @@ function formatDate(ts: unknown) {
     });
   } catch {
     return "—";
+  }
+}
+
+function toMillis(ts: unknown) {
+  try {
+    if (!ts) return 0;
+    const d =
+      typeof ts === "object" && ts !== null && "toDate" in ts && typeof (ts as TimestampLike).toDate === "function"
+        ? (ts as TimestampLike).toDate!()
+        : ts instanceof Date
+        ? ts
+        : typeof ts === "string" || typeof ts === "number"
+        ? new Date(ts)
+        : null;
+    return d ? d.getTime() : 0;
+  } catch {
+    return 0;
   }
 }
 
@@ -132,6 +150,20 @@ export default function SimuladosPageClient() {
 
   const inProgressCount = useMemo(() => {
     return sessions.filter((s) => (s.status || "") === "in_progress").length;
+  }, [sessions]);
+
+  const sessionNumberById = useMemo(() => {
+    const map = new Map<string, number>();
+    const ordered = [...sessions].sort((a, b) => {
+      const aCreated = toMillis(a.createdAt);
+      const bCreated = toMillis(b.createdAt);
+      if (aCreated !== bCreated) return aCreated - bCreated;
+      return toMillis(a.updatedAt) - toMillis(b.updatedAt);
+    });
+    ordered.forEach((s, index) => {
+      map.set(s.id, index + 1);
+    });
+    return map;
   }, [sessions]);
 
   async function onDelete(sessionId: string) {
@@ -225,7 +257,9 @@ export default function SimuladosPageClient() {
             String(s.titleDisplay ?? "").trim() ||
             String(s.title ?? "").trim();
 
-          const { title, subtitle } = cleanTitle(display);
+          const { subtitle } = cleanTitle(display);
+          const number = sessionNumberById.get(s.id) ?? 0;
+          const numberedTitle = `Simulado ${String(number || 1).padStart(2, "0")}`;
 
           const total = Number(s.totalQuestions ?? 0) || 0;
           const answeredRaw = Number(s.answeredCount ?? 0) || 0;
@@ -256,7 +290,7 @@ export default function SimuladosPageClient() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <div className="font-black text-slate-900 truncate dark:text-slate-100">
-                          {title}
+                          {numberedTitle}
                         </div>
                         {subtitle ? (
                           <div className="text-xs text-slate-500 truncate mt-1 dark:text-slate-400">

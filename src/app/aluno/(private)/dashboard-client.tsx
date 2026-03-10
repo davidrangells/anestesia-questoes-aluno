@@ -16,6 +16,7 @@ type SessionDoc = {
   correctCount?: number;
   scorePercent?: number;
   updatedAt?: unknown;
+  createdAt?: unknown;
   title?: string;
   questionIds?: unknown;
   answersMap?: Record<string, { isCorrect?: boolean }>;
@@ -110,33 +111,8 @@ function tsToMs(v: unknown): number {
   return 0;
 }
 
-/**
- * Remove "Todos/Todas" do título quando não há filtro.
- * Ex:
- *  "Simulado • Todas • Todos • Todos" -> "Simulado"
- *  "Simulado • TSA • R1 • Todos" -> "Simulado • TSA • R1"
- */
-function cleanSessionTitle(raw?: string) {
-  const base = (raw ?? "").trim();
-  if (!base) return "Simulado";
-
-  const parts = base
-    .split("•")
-    .map((p) => p.trim())
-    .filter(Boolean);
-
-  if (!parts.length) return "Simulado";
-
-  const head = parts[0] || "Simulado";
-  const tail = parts
-    .slice(1)
-    .filter((p) => {
-      const t = p.toLowerCase();
-      return t !== "todos" && t !== "todas";
-    });
-
-  if (!tail.length) return head;
-  return `${head} • ${tail.join(" • ")}`;
+function formatSimuladoNumber(n: number | null | undefined) {
+  return `Simulado ${String(n || 1).padStart(2, "0")}`;
 }
 
 export default function DashboardClient() {
@@ -257,6 +233,19 @@ export default function DashboardClient() {
 
   const lastSession = useMemo(() => sessions[0] ?? null, [sessions]);
   const recentTop3 = useMemo(() => sessions.slice(0, 3), [sessions]);
+  const sessionNumberById = useMemo(() => {
+    const map = new Map<string, number>();
+    const ordered = [...sessions].sort((a, b) => {
+      const aCreated = tsToMs(a.createdAt);
+      const bCreated = tsToMs(b.createdAt);
+      if (aCreated !== bCreated) return aCreated - bCreated;
+      return tsToMs(a.updatedAt) - tsToMs(b.updatedAt);
+    });
+    ordered.forEach((session, index) => {
+      map.set(session.id, index + 1);
+    });
+    return map;
+  }, [sessions]);
   const topThemes = useMemo(() => [...themePerformance].sort((a, b) => b.accuracy - a.accuracy).slice(0, 3), [themePerformance]);
   const weakThemes = useMemo(() => [...themePerformance].sort((a, b) => a.accuracy - b.accuracy).slice(0, 3), [themePerformance]);
   const needsFocus = weakThemes[0] ?? null;
@@ -316,7 +305,7 @@ export default function DashboardClient() {
   const resolvidasLabel = stats.respondidas > 0 ? String(stats.respondidas) : "—";
   const aproveitamentoLabel = stats.respondidas > 0 ? formatPct(stats.aproveitamentoPct) : "—";
 
-  const lastTitle = cleanSessionTitle(lastSession?.title);
+  const lastTitle = formatSimuladoNumber(lastSession ? sessionNumberById.get(lastSession.id) : null);
   const lastTotal = safeNum(lastSession?.totalQuestions);
   const lastAnsweredRaw = safeNum(lastSession?.answeredCount);
   const lastAnswered = lastTotal > 0 ? Math.min(lastAnsweredRaw, lastTotal) : lastAnsweredRaw;
@@ -336,12 +325,7 @@ export default function DashboardClient() {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <div className="text-3xl font-black text-slate-900 dark:text-slate-100">Início</div>
-          <div className="text-sm text-slate-600 mt-1 dark:text-slate-400">Visão geral do seu desempenho</div>
-        </div>
-
+      <div className="flex justify-end">
         <Button variant="secondary" onClick={load} className="w-full sm:w-auto">
           Atualizar
         </Button>
@@ -417,7 +401,7 @@ export default function DashboardClient() {
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Foco de estudo</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tema para focar estudo</div>
             <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
               {needsFocus ? needsFocus.theme : "Sem dados suficientes"}
             </div>
@@ -526,7 +510,7 @@ export default function DashboardClient() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-3">
             {recentTop3.map((s) => {
-              const title = cleanSessionTitle(s.title);
+              const title = formatSimuladoNumber(sessionNumberById.get(s.id));
               const total = safeNum(s.totalQuestions);
               const answeredRaw = safeNum(s.answeredCount);
               const answered = total > 0 ? Math.min(answeredRaw, total) : answeredRaw;
