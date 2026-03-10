@@ -65,7 +65,7 @@ export default function AlunoSidebar({
   onNavigate?: () => void;
 }) {
   const router = useRouter();
-  const { theme, toggleTheme } = useAlunoTheme();
+  const { theme, setTheme } = useAlunoTheme();
 
   const logout = async () => {
     await signOut(auth);
@@ -129,7 +129,7 @@ export default function AlunoSidebar({
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => theme !== "light" && toggleTheme()}
+              onClick={() => setTheme("light")}
               className={cn(
                 "rounded-xl border px-3 py-2 text-sm font-semibold transition",
                 theme === "light"
@@ -141,7 +141,7 @@ export default function AlunoSidebar({
             </button>
             <button
               type="button"
-              onClick={() => theme !== "dark" && toggleTheme()}
+              onClick={() => setTheme("dark")}
               className={cn(
                 "rounded-xl border px-3 py-2 text-sm font-semibold transition",
                 theme === "dark"

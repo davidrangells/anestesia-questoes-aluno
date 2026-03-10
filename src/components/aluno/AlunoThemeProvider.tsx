@@ -45,8 +45,8 @@ export function AlunoThemeProvider({ children }: { children: React.ReactNode }) 
   }, []);
 
   const toggleTheme = useCallback(() => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  }, [setTheme, theme]);
+    setThemeState((current) => (current === "dark" ? "light" : "dark"));
+  }, []);
 
   const value = useMemo(
     () => ({ theme, setTheme, toggleTheme }),
