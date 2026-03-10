@@ -20,12 +20,12 @@ const base =
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-slate-900 text-white shadow-[0_14px_40px_rgba(2,6,23,0.18)] hover:bg-slate-800",
+    "bg-slate-900 text-white shadow-[0_14px_40px_rgba(2,6,23,0.18)] hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200",
   secondary:
-    "bg-white text-slate-900 border border-slate-200 shadow-sm hover:bg-slate-50",
+    "bg-white text-slate-900 border border-slate-200 shadow-sm hover:bg-slate-50 dark:bg-slate-900 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-800",
   outline:
-    "bg-transparent text-slate-900 border border-slate-200 hover:bg-slate-50",
-  ghost: "bg-transparent text-slate-700 hover:bg-slate-100",
+    "bg-transparent text-slate-900 border border-slate-200 hover:bg-slate-50 dark:text-slate-100 dark:border-slate-700 dark:hover:bg-slate-800",
+  ghost: "bg-transparent text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800",
   danger:
     "bg-rose-600 text-white shadow-[0_14px_40px_rgba(244,63,94,0.25)] hover:bg-rose-500",
 };

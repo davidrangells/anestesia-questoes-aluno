@@ -41,7 +41,7 @@ export default function AlunoTopHeader({
   }, [user]);
 
   return (
-    <header className="sticky top-0 z-30 overflow-hidden border-b border-slate-200/70 bg-white/85 backdrop-blur">
+    <header className="sticky top-0 z-30 overflow-hidden border-b border-slate-200/70 bg-white/85 backdrop-blur dark:border-slate-800 dark:bg-slate-950/75">
       <div className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6 lg:px-10">
         {/* Left */}
         <div className="flex items-center gap-3 min-w-0">
@@ -49,17 +49,17 @@ export default function AlunoTopHeader({
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg text-slate-700 shadow-sm lg:hidden"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg text-slate-700 shadow-sm lg:hidden dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
             aria-label="Abrir menu"
           >
             ☰
           </button>
 
           <div className="min-w-0">
-            <div className="text-xs text-slate-500 font-semibold">
+            <div className="text-xs text-slate-500 font-semibold dark:text-slate-400">
               Área do Aluno
             </div>
-            <div className="text-lg font-black text-slate-900 truncate">
+            <div className="text-lg font-black text-slate-900 truncate dark:text-slate-100">
               {breadcrumb}
             </div>
           </div>
@@ -67,11 +67,11 @@ export default function AlunoTopHeader({
 
         {/* Right */}
         <div className="flex min-w-0 shrink-0 items-center gap-3">
-          <div className="hidden sm:block text-sm text-slate-600 truncate max-w-[220px]">
+          <div className="hidden sm:block text-sm text-slate-600 truncate max-w-[220px] dark:text-slate-300">
             {user?.email ?? ""}
           </div>
 
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white shadow-lg sm:h-10 sm:w-10">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white shadow-lg sm:h-10 sm:w-10 dark:bg-slate-100 dark:text-slate-900">
             {initials}
           </div>
         </div>

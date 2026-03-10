@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, getDocs, query } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
@@ -17,10 +17,30 @@ type SessionDoc = {
   scorePercent?: number;
   updatedAt?: unknown;
   title?: string;
+  questionIds?: unknown;
+  answersMap?: Record<string, { isCorrect?: boolean }>;
+  filters?: {
+    temas?: string[];
+  };
 };
 
 type TimestampLike = {
   toMillis?: () => number;
+};
+
+type QuestionThemeDoc = {
+  themes?: unknown;
+  tema?: unknown;
+  theme?: unknown;
+  topic?: unknown;
+};
+
+type ThemePerformance = {
+  theme: string;
+  total: number;
+  correct: number;
+  wrong: number;
+  accuracy: number;
 };
 
 function cn(...xs: Array<string | false | null | undefined>) {
@@ -30,6 +50,42 @@ function cn(...xs: Array<string | false | null | undefined>) {
 function getErrorMessage(error: unknown, fallback: string) {
   if (error instanceof Error && error.message) return error.message;
   return fallback;
+}
+
+function toStringList(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => (typeof item === "string" ? item.trim() : ""))
+    .filter(Boolean);
+}
+
+function normalizeQuestionIds(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (item && typeof item === "object") {
+        const raw = item as { id?: unknown; questionId?: unknown };
+        if (typeof raw.id === "string") return raw.id.trim();
+        if (typeof raw.questionId === "string") return raw.questionId.trim();
+      }
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function extractQuestionThemes(question: QuestionThemeDoc): string[] {
+  const fromList = toStringList(question.themes);
+  if (fromList.length) return fromList;
+
+  const singleCandidates = [question.tema, question.theme, question.topic];
+  for (const candidate of singleCandidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return [candidate.trim()];
+    }
+  }
+
+  return [];
 }
 
 function formatPct(v: number) {
@@ -89,6 +145,7 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
+  const [themePerformance, setThemePerformance] = useState<ThemePerformance[]>([]);
 
   async function load() {
     const u = auth.currentUser;
@@ -113,6 +170,57 @@ export default function DashboardClient() {
 
       items.sort((a, b) => tsToMs(b.updatedAt) - tsToMs(a.updatedAt));
       setSessions(items);
+
+      const byTheme = new Map<string, { correct: number; wrong: number; total: number }>();
+      const themeCache = new Map<string, string[]>();
+      const completed = items.filter((s) => s.status === "completed").slice(0, 12);
+
+      for (const session of completed) {
+        const qids = normalizeQuestionIds(session.questionIds);
+        const fallbackThemes = toStringList(session.filters?.temas);
+
+        for (const qid of qids) {
+          const answer = session.answersMap?.[qid];
+          if (!answer) continue;
+
+          let themes = themeCache.get(qid);
+          if (!themes) {
+            const qSnap = await getDoc(doc(db, "questionsBank", qid));
+            if (qSnap.exists()) {
+              themes = extractQuestionThemes(qSnap.data() as QuestionThemeDoc);
+            } else {
+              themes = [];
+            }
+            if (!themes.length && fallbackThemes.length) {
+              themes = fallbackThemes;
+            }
+            themeCache.set(qid, themes);
+          }
+
+          for (const theme of themes) {
+            const current = byTheme.get(theme) ?? { correct: 0, wrong: 0, total: 0 };
+            current.total += 1;
+            if (answer.isCorrect) current.correct += 1;
+            else current.wrong += 1;
+            byTheme.set(theme, current);
+          }
+        }
+      }
+
+      const perf = Array.from(byTheme.entries())
+        .map(([theme, agg]) => ({
+          theme,
+          total: agg.total,
+          correct: agg.correct,
+          wrong: agg.wrong,
+          accuracy: agg.total > 0 ? (agg.correct / agg.total) * 100 : 0,
+        }))
+        .sort((a, b) => {
+          if (b.total !== a.total) return b.total - a.total;
+          return b.accuracy - a.accuracy;
+        });
+
+      setThemePerformance(perf);
     } catch (error: unknown) {
       console.error(error);
       setErr(getErrorMessage(error, "Falha ao carregar dados do dashboard."));
@@ -149,6 +257,10 @@ export default function DashboardClient() {
 
   const lastSession = useMemo(() => sessions[0] ?? null, [sessions]);
   const recentTop3 = useMemo(() => sessions.slice(0, 3), [sessions]);
+  const topThemes = useMemo(() => [...themePerformance].sort((a, b) => b.accuracy - a.accuracy).slice(0, 3), [themePerformance]);
+  const weakThemes = useMemo(() => [...themePerformance].sort((a, b) => a.accuracy - b.accuracy).slice(0, 3), [themePerformance]);
+  const needsFocus = weakThemes[0] ?? null;
+  const bestTheme = topThemes[0] ?? null;
 
   if (loading) {
     return (
@@ -217,6 +329,10 @@ export default function DashboardClient() {
       : lastTotal > 0
       ? formatPct((lastAnswered / lastTotal) * 100)
       : "—";
+
+  const recommendation = needsFocus
+    ? `Foque em ${needsFocus.theme}: ${needsFocus.accuracy.toFixed(0)}% de acerto em ${needsFocus.total} questões.`
+    : "Complete mais simulados para liberar recomendações por tema.";
 
   return (
     <div className="space-y-6 overflow-x-hidden">
@@ -296,6 +412,99 @@ export default function DashboardClient() {
           </div>
         </CardHeader>
       </Card>
+
+      {/* Diagnóstico */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Foco de estudo</div>
+            <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
+              {needsFocus ? needsFocus.theme : "Sem dados suficientes"}
+            </div>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <div className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</div>
+            {needsFocus ? (
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Taxa de acerto atual</div>
+                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
+                  {formatPct(needsFocus.accuracy)}
+                </div>
+              </div>
+            ) : null}
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Seu melhor tema</div>
+            <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
+              {bestTheme ? bestTheme.theme : "Sem dados suficientes"}
+            </div>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            {bestTheme ? (
+              <>
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  Aproveite o bom momento para manter consistência nesse tema.
+                </div>
+                <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Acerto médio</div>
+                  <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
+                    {formatPct(bestTheme.accuracy)}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-slate-700 dark:text-slate-300">
+                Responda mais questões para visualizar seu melhor desempenho por tema.
+              </div>
+            )}
+          </CardBody>
+        </Card>
+      </div>
+
+      {themePerformance.length ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">Temas com melhor desempenho</div>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {topThemes.map((t) => (
+                <div key={`top-${t.theme}`} className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{t.theme}</div>
+                    <div className="text-xs font-bold text-emerald-700 dark:text-emerald-400">{formatPct(t.accuracy)}</div>
+                  </div>
+                  <div className="mt-2 h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div className="h-full rounded-full bg-emerald-500" style={{ width: `${Math.min(100, Math.max(0, t.accuracy))}%` }} />
+                  </div>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">Temas para reforçar</div>
+            </CardHeader>
+            <CardBody className="space-y-3">
+              {weakThemes.map((t) => (
+                <div key={`weak-${t.theme}`} className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{t.theme}</div>
+                    <div className="text-xs font-bold text-amber-700 dark:text-amber-400">{formatPct(t.accuracy)}</div>
+                  </div>
+                  <div className="mt-2 h-2 w-full rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
+                    <div className="h-full rounded-full bg-amber-500" style={{ width: `${Math.min(100, Math.max(0, t.accuracy))}%` }} />
+                  </div>
+                </div>
+              ))}
+            </CardBody>
+          </Card>
+        </div>
+      ) : null}
 
       {/* Recentes */}
       <div className="space-y-3">
