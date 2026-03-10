@@ -102,11 +102,11 @@ export default function ProvasPageClient() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="rounded-3xl border bg-white shadow-sm">
+      <div className="rounded-3xl border bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="px-6 py-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="text-2xl font-black text-slate-900">Provas</div>
-            <div className="mt-1 text-sm text-slate-500">
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">Provas</div>
+            <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">
               Escolha uma prova para começar a resolver questões
             </div>
           </div>
@@ -123,20 +123,20 @@ export default function ProvasPageClient() {
       </div>
 
       {/* Content */}
-      <div className="rounded-3xl border bg-white shadow-sm overflow-hidden">
+      <div className="rounded-3xl border bg-white shadow-sm overflow-hidden dark:border-slate-800 dark:bg-slate-900">
         <div className="p-6">
           {loading ? (
-            <div className="text-sm text-slate-500">Carregando provas…</div>
+            <div className="text-sm text-slate-500 dark:text-slate-400">Carregando provas…</div>
           ) : erro ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
               {erro}
             </div>
           ) : filtered.length === 0 ? (
             <div className="space-y-2">
-              <div className="text-lg font-bold text-slate-900">
+              <div className="text-lg font-bold text-slate-900 dark:text-slate-100">
                 Nenhuma prova encontrada
               </div>
-              <div className="text-sm text-slate-500">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
                 Tente ajustar a busca, ou confirme se a coleção <b>provas</b>{" "}
                 existe e se o campo <b>ativo</b> está como <b>true</b>.
               </div>
@@ -151,24 +151,24 @@ export default function ProvasPageClient() {
                     key={p.id}
                     href={`/aluno/provas/${p.id}`}
                     className={cn(
-                      "group rounded-3xl border p-5 transition bg-white hover:bg-slate-50",
+                      "group rounded-3xl border p-5 transition bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
                       "hover:shadow-[0_20px_60px_rgba(15,23,42,0.10)]"
                     )}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-500">
+                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
                           {badge}
                         </div>
-                        <div className="mt-1 text-lg font-black text-slate-900 truncate">
+                        <div className="mt-1 text-lg font-black text-slate-900 truncate dark:text-slate-100">
                           {title}
                         </div>
-                        <div className="mt-2 text-sm text-slate-500">
+                        <div className="mt-2 text-sm text-slate-500 dark:text-slate-400">
                           Clique para ver as questões
                         </div>
                       </div>
 
-                      <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black">
+                      <div className="h-10 w-10 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black dark:bg-slate-100 dark:text-slate-900">
                         →
                       </div>
                     </div>

@@ -487,9 +487,9 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     return (
       <Card>
         <CardHeader>
-          <div className="text-lg font-black text-slate-900">Simulado</div>
+          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Simulado</div>
         </CardHeader>
-        <CardBody className="text-slate-600">Carregando…</CardBody>
+        <CardBody className="text-slate-600 dark:text-slate-300">Carregando…</CardBody>
       </Card>
     );
   }
@@ -498,10 +498,10 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     return (
       <Card>
         <CardHeader>
-          <div className="text-lg font-black text-slate-900">Simulado</div>
+          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Simulado</div>
         </CardHeader>
         <CardBody>
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
             {err}
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -527,8 +527,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     <div className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="text-xs font-semibold text-slate-500">Pergunta</div>
-          <div className="mt-2 text-[15px] leading-7 text-slate-900">{statement}</div>
+          <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Pergunta</div>
+          <div className="mt-2 text-[15px] leading-7 text-slate-900 dark:text-slate-100">{statement}</div>
         </CardHeader>
 
         <CardBody className="space-y-3">
@@ -549,10 +549,10 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                   "focus:ring-2 focus:ring-slate-900/10",
                   !confirmed && !isReviewMode && "hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)]",
                   isSelected
-                    ? "border-slate-900/50 bg-slate-900/5"
-                    : "border-slate-200 bg-white hover:bg-slate-50",
-                  isCorrectOpt && "border-emerald-300 bg-emerald-50",
-                  isWrongOpt && "border-rose-300 bg-rose-50"
+                    ? "border-slate-900/50 bg-slate-900/5 dark:border-slate-400 dark:bg-slate-800"
+                    : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
+                  isCorrectOpt && "border-emerald-300 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30",
+                  isWrongOpt && "border-rose-300 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30"
                 )}
               >
                 <div className="flex items-start gap-3">
@@ -560,19 +560,19 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                     className={cn(
                       "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 border text-sm font-black",
                       isCorrectOpt
-                        ? "border-emerald-200 bg-emerald-100 text-emerald-800"
+                        ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300"
                         : isWrongOpt
-                        ? "border-rose-200 bg-rose-100 text-rose-800"
+                        ? "border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300"
                         : isSelected
-                        ? "border-slate-900/40 bg-slate-900 text-white"
-                        : "border-slate-200 bg-white text-slate-700"
+                        ? "border-slate-900/40 bg-slate-900 text-white dark:border-slate-400 dark:bg-slate-100 dark:text-slate-900"
+                        : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
                     )}
                   >
                     {opt.id}
                   </div>
 
                   <div className="min-w-0">
-                    <div className="text-[14px] leading-6 text-slate-900">
+                    <div className="text-[14px] leading-6 text-slate-900 dark:text-slate-100">
                       {opt.text ?? ""}
                     </div>
                   </div>
@@ -598,23 +598,23 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                   "rounded-2xl border px-4 py-3",
                   hasSavedAnswer
                     ? isCorrect
-                      ? "border-emerald-200 bg-emerald-50"
-                      : "border-rose-200 bg-rose-50"
-                    : "border-slate-200 bg-slate-50"
+                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+                      : "border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30"
+                    : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
                 )}
               >
-                <div className="text-sm font-bold text-slate-900">Resultado</div>
+                <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Resultado</div>
                 {hasSavedAnswer ? (
                   <div
                     className={cn(
                       "mt-1 text-sm font-semibold",
-                      isCorrect ? "text-emerald-700" : "text-rose-700"
+                      isCorrect ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
                     )}
                   >
                     {isCorrect ? "✅ Você acertou!" : "❌ Você errou."}
                   </div>
                 ) : (
-                  <div className="mt-1 text-sm font-semibold text-slate-600">
+                  <div className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
                     Questão sem resposta registrada.
                   </div>
                 )}
@@ -622,9 +622,9 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
               {/* ✅ comentário */}
               {explanationText ? (
-                <div className="rounded-2xl border bg-white px-4 py-3">
-                  <div className="text-sm font-bold text-slate-900">Comentário</div>
-                  <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap">
+                <div className="rounded-2xl border bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Comentário</div>
+                  <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap dark:text-slate-300">
                     {explanationText}
                   </div>
                 </div>
@@ -638,8 +638,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               </div>
 
               {reportOpen ? (
-                <div className="rounded-2xl border bg-slate-50 p-4 space-y-3">
-                  <div className="text-sm font-bold text-slate-900">
+                <div className="rounded-2xl border bg-slate-50 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
                     Descreva o problema:
                   </div>
                   <textarea
@@ -692,7 +692,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
           </div>
 
           {showResultPanel ? (
-            <div className="text-sm font-semibold text-emerald-700">
+            <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
               {isReviewMode ? `Revisão ${answeredCount}/${totalFromSession}` : "Resposta confirmada ✓"}
             </div>
           ) : null}

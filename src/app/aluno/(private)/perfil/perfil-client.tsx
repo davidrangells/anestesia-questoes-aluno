@@ -57,7 +57,7 @@ function Field({
 }) {
   return (
     <div className={cn(half ? "sm:col-span-6" : "sm:col-span-12")}>
-      <label className="block text-sm font-semibold text-slate-800">{label}</label>
+      <label className="block text-sm font-semibold text-slate-800 dark:text-slate-200">{label}</label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -211,7 +211,7 @@ export default function PerfilClient() {
 
   if (loading) {
     return (
-      <div className="rounded-3xl border bg-white shadow-sm p-6 text-slate-600">
+      <div className="rounded-3xl border bg-white shadow-sm p-6 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
         Carregando perfil…
       </div>
     );
@@ -220,12 +220,12 @@ export default function PerfilClient() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="rounded-3xl border bg-white shadow-sm px-6 py-5">
+      <div className="rounded-3xl border bg-white shadow-sm px-6 py-5 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-xs font-semibold text-slate-500">Área do Aluno</div>
-            <div className="text-2xl font-black text-slate-900">Perfil</div>
-            <div className="text-sm text-slate-600 mt-1">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Área do Aluno</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">Perfil</div>
+            <div className="text-sm text-slate-600 mt-1 dark:text-slate-300">
               Gerencie suas informações e acesso.
             </div>
           </div>
@@ -244,15 +244,15 @@ export default function PerfilClient() {
       {/* Content grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Card: dados */}
-        <div className="lg:col-span-2 rounded-3xl border bg-white shadow-sm p-6">
+        <div className="lg:col-span-2 rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div className="flex items-center gap-4 min-w-0">
-              <div className="h-14 w-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black">
+              <div className="h-14 w-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black dark:bg-slate-100 dark:text-slate-900">
                 {initials(displayName || email)}
               </div>
               <div className="min-w-0">
-                <div className="text-lg font-black text-slate-900 truncate">{displayName}</div>
-                <div className="text-sm text-slate-600 truncate">{email}</div>
+                <div className="text-lg font-black text-slate-900 truncate dark:text-slate-100">{displayName}</div>
+                <div className="text-sm text-slate-600 truncate dark:text-slate-300">{email}</div>
               </div>
             </div>
 
@@ -355,17 +355,17 @@ export default function PerfilClient() {
         </div>
 
         {/* Card: segurança */}
-        <div className="rounded-3xl border bg-white shadow-sm p-6">
-          <div className="text-lg font-black text-slate-900">Segurança</div>
+        <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Segurança</div>
 
-          <div className="mt-4 rounded-2xl border bg-slate-50 p-4">
-            <div className="text-sm font-semibold text-slate-800">E-mail de acesso</div>
-            <div className="text-sm text-slate-700 mt-1 break-all">{email}</div>
+          <div className="mt-4 rounded-2xl border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">E-mail de acesso</div>
+            <div className="text-sm text-slate-700 mt-1 break-all dark:text-slate-300">{email}</div>
           </div>
 
-          <div className="mt-4 rounded-2xl border bg-white p-4">
-            <div className="text-sm font-semibold text-slate-800">Dica</div>
-            <div className="text-sm text-slate-700 mt-2 leading-relaxed">
+          <div className="mt-4 rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
+            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Dica</div>
+            <div className="text-sm text-slate-700 mt-2 leading-relaxed dark:text-slate-300">
               Para trocar a senha, use <span className="font-semibold">Redefinir senha</span> —
               você recebe o link no e-mail.
             </div>

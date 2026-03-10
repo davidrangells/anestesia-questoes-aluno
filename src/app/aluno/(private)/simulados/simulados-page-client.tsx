@@ -156,14 +156,14 @@ export default function SimuladosPageClient() {
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-slate-500">Meus</div>
-            <div className="text-2xl font-black text-slate-900">Simulados</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Meus</div>
+            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">Simulados</div>
 
             <div className="mt-2 flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700">
+              <span className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-bold text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                 {inProgressCount} em andamento
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 dark:text-slate-400">
                 Atualize recarregando a página.
               </span>
             </div>
@@ -184,7 +184,7 @@ export default function SimuladosPageClient() {
       {err ? (
         <Card>
           <CardBody>
-            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
               {err}
             </div>
             <div className="mt-3">
@@ -197,7 +197,7 @@ export default function SimuladosPageClient() {
       {loading && !sessions.length ? (
         <Card>
           <CardBody>
-            <div className="text-slate-600">Carregando…</div>
+            <div className="text-slate-600 dark:text-slate-300">Carregando…</div>
           </CardBody>
         </Card>
       ) : null}
@@ -205,7 +205,7 @@ export default function SimuladosPageClient() {
       {!loading && !sessions.length && !err ? (
         <Card>
           <CardBody>
-            <div className="text-slate-700 font-semibold">
+            <div className="text-slate-700 font-semibold dark:text-slate-200">
               Você ainda não criou nenhum simulado.
             </div>
             <div className="mt-3">
@@ -255,11 +255,11 @@ export default function SimuladosPageClient() {
                     {/* ✅ titulo + badge com “respiro” */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="font-black text-slate-900 truncate">
+                        <div className="font-black text-slate-900 truncate dark:text-slate-100">
                           {title}
                         </div>
                         {subtitle ? (
-                          <div className="text-xs text-slate-500 truncate mt-1">
+                          <div className="text-xs text-slate-500 truncate mt-1 dark:text-slate-400">
                             {subtitle}
                           </div>
                         ) : null}
@@ -269,8 +269,8 @@ export default function SimuladosPageClient() {
                         className={cn(
                           "shrink-0 text-[11px] font-bold px-3 py-1 rounded-full border",
                           isCompleted
-                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                            : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/30 dark:text-emerald-300 dark:border-emerald-900/40"
+                            : "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/30 dark:text-indigo-300 dark:border-indigo-900/40"
                         )}
                       >
                         {isCompleted ? "Concluído" : "Em andamento"}
@@ -278,23 +278,23 @@ export default function SimuladosPageClient() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Atualizado: <b>{formatDate(s.updatedAt)}</b>
                       </span>
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Progresso: <b>{answered}/{total || "—"}</b>
                       </span>
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Acertos: <b>{correct}</b>
                       </span>
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700">
+                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Nota: <b>{percent}%</b>
                       </span>
                     </div>
 
-                    <div className="mt-4 h-2 w-full rounded-full bg-slate-100 overflow-hidden">
+                    <div className="mt-4 h-2 w-full rounded-full bg-slate-100 overflow-hidden dark:bg-slate-800">
                       <div
-                        className="h-full rounded-full bg-slate-900 transition-all"
+                        className="h-full rounded-full bg-slate-900 transition-all dark:bg-slate-200"
                         style={{ width: `${progressPct}%` }}
                       />
                     </div>
@@ -323,7 +323,7 @@ export default function SimuladosPageClient() {
         })}
       </div>
 
-      <div className="text-xs text-slate-400">
+      <div className="text-xs text-slate-400 dark:text-slate-500">
         Se algum botão não abrir, acesse:{" "}
         <Link className="underline" href="/aluno/simulados/novo">
           /aluno/simulados/novo

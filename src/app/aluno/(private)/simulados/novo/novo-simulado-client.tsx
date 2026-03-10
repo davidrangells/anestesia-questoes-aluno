@@ -206,21 +206,21 @@ export default function NovoSimuladoClient() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-3xl border bg-white shadow-sm p-6">
-        <div className="text-2xl font-black text-slate-900">Novo simulado</div>
-        <div className="text-sm text-slate-500 mt-1">
+      <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="text-2xl font-black text-slate-900 dark:text-slate-100">Novo simulado</div>
+        <div className="text-sm text-slate-500 mt-1 dark:text-slate-400">
           Selecione seus filtros e gere um simulado personalizado.
         </div>
       </div>
 
       {loading ? (
-        <div className="text-sm text-slate-500">Carregando…</div>
+        <div className="text-sm text-slate-500 dark:text-slate-400">Carregando…</div>
       ) : (
         <>
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="rounded-3xl border bg-white shadow-sm p-6">
-              <div className="font-black text-slate-900">Seleção de provas</div>
-              <div className="text-xs text-slate-500 mt-1">Sem filtro = todas</div>
+            <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
+              <div className="font-black text-slate-900 dark:text-slate-100">Seleção de provas</div>
+              <div className="text-xs text-slate-500 mt-1 dark:text-slate-400">Sem filtro = todas</div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {provas.map((p) => {
@@ -240,9 +240,9 @@ export default function NovoSimuladoClient() {
               </div>
             </div>
 
-            <div className="rounded-3xl border bg-white shadow-sm p-6">
-              <div className="font-black text-slate-900">Seleção de Especialização</div>
-              <div className="text-xs text-slate-500 mt-1">Sem filtro = todos</div>
+            <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
+              <div className="font-black text-slate-900 dark:text-slate-100">Seleção de Especialização</div>
+              <div className="text-xs text-slate-500 mt-1 dark:text-slate-400">Sem filtro = todos</div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {["R1", "R2", "R3"].map((n) => {
@@ -261,8 +261,8 @@ export default function NovoSimuladoClient() {
               </div>
             </div>
 
-            <div className="rounded-3xl border bg-white shadow-sm p-6">
-              <div className="font-black text-slate-900">Quantidade de questões</div>
+            <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
+              <div className="font-black text-slate-900 dark:text-slate-100">Quantidade de questões</div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {[10, 20, 30, 50].map((n) => {
@@ -287,18 +287,18 @@ export default function NovoSimuladoClient() {
             </div>
           </div>
 
-          <div className="rounded-3xl border bg-white shadow-sm p-6">
+          <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
-                <div className="font-black text-slate-900">Seleção de Temas</div>
-                <div className="text-sm text-slate-500 mt-1">
+                <div className="font-black text-slate-900 dark:text-slate-100">Seleção de Temas</div>
+                <div className="text-sm text-slate-500 mt-1 dark:text-slate-400">
                   Dica: escolha 1–3 temas para ficar mais direcionado.
                 </div>
               </div>
 
               <button
                 onClick={() => setSelectedTemas([])}
-                className="text-sm font-semibold text-slate-700 transition hover:text-slate-900"
+                className="text-sm font-semibold text-slate-700 transition hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-100"
                 type="button"
               >
                 Limpar
@@ -325,7 +325,7 @@ export default function NovoSimuladoClient() {
                 );
               })}
               {temas.length === 0 ? (
-                <div className="text-sm text-slate-500">Nenhum tema carregado (ok por enquanto).</div>
+                <div className="text-sm text-slate-500 dark:text-slate-400">Nenhum tema carregado (ok por enquanto).</div>
               ) : null}
             </div>
 
@@ -340,7 +340,7 @@ export default function NovoSimuladoClient() {
               </Button>
             </div>
 
-            <div className="mt-2 text-xs text-slate-500 truncate">{titleDisplay}</div>
+            <div className="mt-2 text-xs text-slate-500 truncate dark:text-slate-400">{titleDisplay}</div>
           </div>
         </>
       )}

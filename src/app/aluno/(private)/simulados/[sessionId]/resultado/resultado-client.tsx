@@ -97,9 +97,9 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
     return (
       <Card>
         <CardHeader>
-          <div className="text-lg font-black text-slate-900">Resultado final</div>
+          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Resultado final</div>
         </CardHeader>
-        <CardBody className="text-slate-600">Carregando…</CardBody>
+        <CardBody className="text-slate-600 dark:text-slate-300">Carregando…</CardBody>
       </Card>
     );
   }
@@ -108,10 +108,10 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
     return (
       <Card>
         <CardHeader>
-          <div className="text-lg font-black text-slate-900">Resultado final</div>
+          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Resultado final</div>
         </CardHeader>
         <CardBody>
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 font-semibold">
+          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-700 font-semibold dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300">
             {err}
           </div>
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
@@ -134,11 +134,11 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            <div className="text-xs font-semibold text-slate-500">Resultado final</div>
-            <div className="mt-1 text-2xl font-black text-slate-900 truncate">{title}</div>
-            <div className="mt-1 text-sm text-slate-600">
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Resultado final</div>
+            <div className="mt-1 text-2xl font-black text-slate-900 truncate dark:text-slate-100">{title}</div>
+            <div className="mt-1 text-sm text-slate-600 dark:text-slate-300">
               Status:{" "}
-              <span className="font-semibold text-slate-900">
+              <span className="font-semibold text-slate-900 dark:text-slate-100">
                 {session.status ?? "completed"}
               </span>
             </div>
@@ -164,8 +164,8 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
         ].map((x) => (
           <Card key={x.label}>
             <CardHeader>
-              <div className="text-sm text-slate-500">{x.label}</div>
-              <div className="mt-2 text-4xl font-black text-slate-900">{x.value}</div>
+              <div className="text-sm text-slate-500 dark:text-slate-400">{x.label}</div>
+              <div className="mt-2 text-4xl font-black text-slate-900 dark:text-slate-100">{x.value}</div>
             </CardHeader>
           </Card>
         ))}
@@ -173,13 +173,13 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
 
       <Card>
         <CardHeader>
-          <div className="text-xl font-black text-slate-900">Resumo</div>
+          <div className="text-xl font-black text-slate-900 dark:text-slate-100">Resumo</div>
         </CardHeader>
         <CardBody className="space-y-4">
-          <div className="text-slate-700">
+          <div className="text-slate-700 dark:text-slate-200">
             Você respondeu <b>{stats.answered}</b> de <b>{stats.total}</b> questões.
           </div>
-          <div className="text-slate-700">
+          <div className="text-slate-700 dark:text-slate-200">
             Aproveitamento: <b>{formatPct(stats.score)}</b>
           </div>
 
