@@ -63,6 +63,11 @@ type QuestionDoc = {
   explanation?: unknown;
   comentario?: unknown;
   comment?: unknown;
+  referencia?: unknown;
+  referenca?: unknown;
+  reference?: unknown;
+  fonte?: unknown;
+  bibliografia?: unknown;
 
   imageUrl?: string | null;
 };
@@ -248,6 +253,17 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     return s;
   }, [currentQuestion]);
 
+  const referenceText = useMemo(() => {
+    const raw =
+      currentQuestion?.referencia ??
+      currentQuestion?.referenca ??
+      currentQuestion?.reference ??
+      currentQuestion?.fonte ??
+      currentQuestion?.bibliografia ??
+      "";
+    return safeStr(raw);
+  }, [currentQuestion]);
+
   const load = useCallback(async () => {
     const u = auth.currentUser;
     if (!u) {
@@ -283,7 +299,19 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       setQuestions(ordered);
 
       const idx = Number(sess.currentIndex ?? 0) || 0;
-      setCurrentIndex(Math.min(Math.max(0, idx), Math.max(0, ordered.length - 1)));
+      const nextIndex =
+        sess.status === "completed"
+          ? 0
+          : Math.min(Math.max(0, idx), Math.max(0, ordered.length - 1));
+
+      setCurrentIndex(nextIndex);
+
+      if (sess.status === "completed" && idx !== 0) {
+        await updateDoc(sessionRef, {
+          currentIndex: 0,
+          updatedAt: serverTimestamp(),
+        });
+      }
 
     } catch (error: unknown) {
       console.error(error);
@@ -519,7 +547,6 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
   const canFinalize = !isReviewMode && isLast;
   const finalizeDisabled = !confirmed || isSubmitting || isFinishing;
-  const answeredCount = Math.min(Number(session.answeredCount ?? 0) || 0, totalFromSession || 0);
   const hasSavedAnswer = !!currentSavedAnswer && !!safeStr(currentSavedAnswer.selectedOptionId);
   const showResultPanel = confirmed || isReviewMode;
 
@@ -630,6 +657,15 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                 </div>
               ) : null}
 
+              {referenceText ? (
+                <div className="rounded-2xl border bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Referência</div>
+                  <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words dark:text-slate-300">
+                    {referenceText}
+                  </div>
+                </div>
+              ) : null}
+
               {/* ✅ reportar erro */}
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setReportOpen((v) => !v)}>
@@ -693,7 +729,9 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
           {showResultPanel ? (
             <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              {isReviewMode ? `Revisão ${answeredCount}/${totalFromSession}` : "Resposta confirmada ✓"}
+              {isReviewMode
+                ? `Revisão ${Math.min(currentIndex + 1, Math.max(totalFromSession, 1))}/${Math.max(totalFromSession, 1)}`
+                : "Resposta confirmada ✓"}
             </div>
           ) : null}
         </CardBody>

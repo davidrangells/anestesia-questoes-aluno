@@ -2,16 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  addDoc,
-  collection,
-  getDocs,
-  limit,
-  query,
-  serverTimestamp,
-  where,
-  orderBy,
-} from "firebase/firestore";
+import { addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp, where } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 
@@ -24,6 +15,9 @@ type Prova = { id: string; nome?: string; sigla?: string; ativo?: boolean; ordem
 
 type TemaDoc = {
   nome?: string;
+  tema?: string;
+  title?: string;
+  ativo?: boolean;
 };
 
 function hasText(value: string | undefined): value is string {
@@ -32,10 +26,19 @@ function hasText(value: string | undefined): value is string {
 
 type QuestionBankDoc = {
   id: string;
-  isActive?: boolean;
-  examType?: string; // TSA, TEA, ME
-  specialization?: string; // R1/R2/R3 ou ""
-  themes?: string[];
+  isActive?: unknown;
+  examType?: unknown;
+  specialization?: unknown;
+  themes?: unknown;
+  temas?: unknown;
+  tema?: unknown;
+  theme?: unknown;
+  topic?: unknown;
+  prova?: unknown;
+  provaId?: unknown;
+  provaSigla?: unknown;
+  nivel?: unknown;
+  level?: unknown;
 };
 
 function shuffle<T>(arr: T[]) {
@@ -52,6 +55,50 @@ function normalizeTitleParts(parts: string[]) {
     .map((p) => String(p || "").trim())
     .filter(Boolean)
     .filter((p) => p.toLowerCase() !== "todos" && p.toLowerCase() !== "todas");
+}
+
+function norm(v: unknown) {
+  return String(v ?? "")
+    .trim()
+    .toUpperCase();
+}
+
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item ?? "").trim())
+    .filter(Boolean);
+}
+
+function uniq(items: string[]) {
+  return Array.from(new Set(items.filter(Boolean)));
+}
+
+function extractThemes(q: QuestionBankDoc): string[] {
+  const fromArrays = [
+    ...toStringArray(q.themes),
+    ...toStringArray(q.temas),
+  ];
+  const single = [q.tema, q.theme, q.topic]
+    .map((v) => String(v ?? "").trim())
+    .filter(Boolean);
+  return uniq([...fromArrays, ...single]);
+}
+
+function extractExamTokens(q: QuestionBankDoc): string[] {
+  return uniq(
+    [q.examType, q.prova, q.provaSigla, q.provaId]
+      .map(norm)
+      .filter(Boolean)
+  );
+}
+
+function extractLevelTokens(q: QuestionBankDoc): string[] {
+  return uniq(
+    [q.specialization, q.nivel, q.level]
+      .map(norm)
+      .filter(Boolean)
+  );
 }
 
 export default function NovoSimuladoClient() {
@@ -81,16 +128,34 @@ export default function NovoSimuladoClient() {
         const pSnap = await getDocs(pQ);
         setProvas(pSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Prova, "id">) })));
 
+        const collectedThemes = new Set<string>();
+
         try {
-          const tSnap = await getDocs(query(collection(db, "temas"), limit(300)));
-          const names = tSnap.docs
-            .map((d) => (d.data() as TemaDoc).nome)
-            .filter(hasText)
-            .sort((a, b) => String(a).localeCompare(String(b), "pt-BR"));
-          setTemas(names);
+          const tSnap = await getDocs(collection(db, "temas"));
+          tSnap.docs.forEach((d) => {
+            const data = d.data() as TemaDoc;
+            if (data.ativo === false) return;
+            const label = data.nome ?? data.tema ?? data.title;
+            if (hasText(label)) collectedThemes.add(label.trim());
+          });
         } catch {
-          setTemas([]);
+          // fallback abaixo via questionsBank
         }
+
+        try {
+          const qbSnap = await getDocs(collection(db, "questionsBank"));
+          qbSnap.docs.forEach((d) => {
+            const data = d.data() as Omit<QuestionBankDoc, "id">;
+            const themesFromQuestion = extractThemes({ id: d.id, ...data });
+            themesFromQuestion.forEach((theme) => collectedThemes.add(theme));
+          });
+        } catch {
+          // mantém os temas já coletados da coleção "temas"
+        }
+
+        setTemas(
+          Array.from(collectedThemes).sort((a, b) => a.localeCompare(b, "pt-BR"))
+        );
       } finally {
         setLoading(false);
       }
@@ -99,23 +164,30 @@ export default function NovoSimuladoClient() {
   }, []);
 
   // ✅ examTypes aceitos (usa sigla se existir)
-  const selectedExamTypes = useMemo(() => {
+  const selectedExamTokens = useMemo(() => {
     if (!selectedProvas.length) return [];
-    return selectedProvas
-      .map((pid) => {
+    return uniq(
+      selectedProvas.flatMap((pid) => {
         const p = provas.find((x) => x.id === pid);
-        return (p?.sigla || p?.id || "").toString().toUpperCase().trim();
+        return [p?.sigla, p?.id, p?.nome].map(norm).filter(Boolean);
       })
-      .filter(Boolean);
+    );
   }, [selectedProvas, provas]);
 
   const title = useMemo(() => {
-    const provasLabel =
-      selectedExamTypes.length === 0 ? "Todas" : selectedExamTypes.join(", ");
+    const provasLabel = selectedProvas.length
+      ? selectedProvas
+          .map((pid) => {
+            const p = provas.find((x) => x.id === pid);
+            return String(p?.sigla || p?.nome || p?.id || "").trim();
+          })
+          .filter(Boolean)
+          .join(", ")
+      : "Todas";
     const niveisLabel = selectedNiveis.length === 0 ? "Todos" : selectedNiveis.join(", ");
     const temasLabel = selectedTemas.length === 0 ? "Todos" : selectedTemas.join(", ");
     return `Simulado • ${provasLabel} • ${niveisLabel} • ${temasLabel}`;
-  }, [selectedExamTypes, selectedNiveis, selectedTemas]);
+  }, [selectedNiveis, selectedProvas, selectedTemas, provas]);
 
   const titleDisplay = useMemo(() => {
     const parts = title.split("•").map((p) => p.trim());
@@ -125,8 +197,7 @@ export default function NovoSimuladoClient() {
   }, [title]);
 
   async function pickQuestions(): Promise<string[]> {
-    // ⚠️ 500 para teste; se sua base crescer, a gente otimiza para query + índices
-    const snap = await getDocs(query(collection(db, "questionsBank"), limit(500)));
+    const snap = await getDocs(collection(db, "questionsBank"));
 
     const all: QuestionBankDoc[] = snap.docs.map((d) => ({
       id: d.id,
@@ -136,18 +207,18 @@ export default function NovoSimuladoClient() {
     const activeOnly = all.filter((q) => q.isActive !== false);
 
     const filtered = activeOnly.filter((q) => {
-      if (selectedExamTypes.length > 0) {
-        const et = String(q.examType ?? "").toUpperCase().trim();
-        if (!selectedExamTypes.includes(et)) return false;
+      if (selectedExamTokens.length > 0) {
+        const tokens = extractExamTokens(q);
+        if (!tokens.some((token) => selectedExamTokens.includes(token))) return false;
       }
 
       if (selectedNiveis.length > 0) {
-        const sp = String(q.specialization ?? "").trim();
-        if (!selectedNiveis.includes(sp)) return false;
+        const levels = extractLevelTokens(q);
+        if (!levels.some((level) => selectedNiveis.includes(level))) return false;
       }
 
       if (selectedTemas.length > 0) {
-        const themes = Array.isArray(q.themes) ? q.themes : [];
+        const themes = extractThemes(q);
         const has = selectedTemas.some((t) => themes.includes(t));
         if (!has) return false;
       }
@@ -175,7 +246,8 @@ export default function NovoSimuladoClient() {
         titleDisplay,
         status: "in_progress",
         filters: {
-          provas: selectedExamTypes,
+          provas: selectedExamTokens,
+          provaIds: selectedProvas,
           niveis: selectedNiveis,
           temas: selectedTemas,
         },
@@ -201,7 +273,7 @@ export default function NovoSimuladoClient() {
 
   const pillBase =
     "px-3 py-2 rounded-full text-sm font-semibold border transition max-w-full truncate";
-  const pillOn = "bg-slate-900 text-white border-slate-900";
+  const pillOn = "bg-slate-900 text-white border-slate-900 dark:bg-blue-500 dark:border-blue-500";
   const pillOff = "bg-white border-slate-200 text-slate-800 hover:bg-slate-50";
 
   return (
@@ -273,9 +345,7 @@ export default function NovoSimuladoClient() {
                       onClick={() => setQtd(n)}
                       className={[
                         "rounded-2xl px-4 py-3 text-sm font-semibold border transition",
-                        active
-                          ? "bg-slate-900 text-white border-slate-900"
-                          : "bg-white border-slate-200 text-slate-800 hover:bg-slate-50",
+                        active ? pillOn : pillOff,
                       ].join(" ")}
                       type="button"
                     >
@@ -312,11 +382,7 @@ export default function NovoSimuladoClient() {
                   <button
                     key={t}
                     onClick={() => setSelectedTemas((prev) => toggle(prev, t))}
-                    className={`${pillBase} ${
-                      active
-                        ? "bg-indigo-100 border-indigo-200 text-indigo-900"
-                        : pillOff
-                    }`}
+                    className={`${pillBase} ${active ? pillOn : pillOff}`}
                     type="button"
                     title={t}
                   >
