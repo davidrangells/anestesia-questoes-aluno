@@ -19,6 +19,7 @@ type SessionDoc = {
   id: string;
   status?: "in_progress" | "completed";
   questionIds?: unknown;
+  optionMap?: Record<string, string[]>;
   totalQuestions?: number;
   currentIndex?: number;
   answeredCount?: number;
@@ -91,6 +92,22 @@ function cn(...xs: Array<string | false | null | undefined>) {
 
 function safeStr(v: unknown) {
   return String(v ?? "").trim();
+}
+
+function applyOptionOrder(
+  options: QuestionOption[] | undefined,
+  orderedIds: string[] | undefined
+) {
+  if (!Array.isArray(options) || options.length <= 1) return options ?? [];
+  if (!Array.isArray(orderedIds) || !orderedIds.length) return options;
+
+  const byId = new Map(options.map((option) => [option.id, option] as const));
+  const ordered = orderedIds
+    .map((id) => byId.get(id))
+    .filter(Boolean) as QuestionOption[];
+
+  const remaining = options.filter((option) => !orderedIds.includes(option.id));
+  return [...ordered, ...remaining];
 }
 
 /**
@@ -296,7 +313,15 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
       // mantém ordem
       const ordered = questionIds
-        .map((qid) => loaded.find((q) => q.id === qid) || loaded[0] || null)
+        .map((qid) => {
+          const question = loaded.find((q) => q.id === qid) || loaded[0] || null;
+          if (!question) return null;
+
+          return {
+            ...question,
+            options: applyOptionOrder(question.options, sess.optionMap?.[qid]),
+          };
+        })
         .filter(Boolean) as QuestionDoc[];
 
       setSession(sess);

@@ -39,6 +39,7 @@ type QuestionBankDoc = {
   provaSigla?: unknown;
   nivel?: unknown;
   level?: unknown;
+  options?: Array<{ id?: unknown }>;
 };
 
 function shuffle<T>(arr: T[]) {
@@ -99,6 +100,24 @@ function extractLevelTokens(q: QuestionBankDoc): string[] {
       .map(norm)
       .filter(Boolean)
   );
+}
+
+function buildOptionMap(questions: QuestionBankDoc[]) {
+  const optionMap: Record<string, string[]> = {};
+
+  questions.forEach((question) => {
+    const optionIds = Array.isArray(question.options)
+      ? question.options
+          .map((option) => String(option?.id ?? "").trim())
+          .filter(Boolean)
+      : [];
+
+    if (optionIds.length > 1) {
+      optionMap[question.id] = shuffle(optionIds);
+    }
+  });
+
+  return optionMap;
 }
 
 export default function NovoSimuladoClient() {
@@ -204,7 +223,7 @@ export default function NovoSimuladoClient() {
     return temas.filter((t) => t.toLowerCase().includes(q));
   }, [temas, themeQuery]);
 
-  async function pickQuestions(): Promise<string[]> {
+  async function pickQuestions(): Promise<QuestionBankDoc[]> {
     const snap = await getDocs(collection(db, "questionsBank"));
 
     const all: QuestionBankDoc[] = snap.docs.map((d) => ({
@@ -234,7 +253,7 @@ export default function NovoSimuladoClient() {
       return true;
     });
 
-    return shuffle(filtered).slice(0, qtd).map((q) => q.id);
+    return shuffle(filtered).slice(0, qtd);
   }
 
   const createSimulado = async () => {
@@ -242,7 +261,9 @@ export default function NovoSimuladoClient() {
 
     setCreating(true);
     try {
-      const questionIds = await pickQuestions();
+      const selectedQuestions = await pickQuestions();
+      const questionIds = selectedQuestions.map((question) => question.id);
+      const optionMap = buildOptionMap(selectedQuestions);
 
       if (!questionIds.length) {
         alert("Nenhuma questão encontrada com esses filtros. Tente remover filtros.");
@@ -260,6 +281,7 @@ export default function NovoSimuladoClient() {
           temas: selectedTemas,
         },
         questionIds, // ✅ ids do questionsBank
+        optionMap,
         totalQuestions: questionIds.length,
         currentIndex: 0,
         answeredCount: 0,
