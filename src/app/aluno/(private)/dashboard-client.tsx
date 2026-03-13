@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { auth, db } from "@/lib/firebase";
-import { collection, doc, getDoc, getDocs, query } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, limit, orderBy, query } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
@@ -42,6 +42,12 @@ type ThemePerformance = {
   correct: number;
   wrong: number;
   accuracy: number;
+};
+
+type DashboardCache = {
+  ts: number;
+  sessions: SessionDoc[];
+  themePerformance: ThemePerformance[];
 };
 
 function cn(...xs: Array<string | false | null | undefined>) {
@@ -115,6 +121,106 @@ function formatSimuladoNumber(n: number | null | undefined) {
   return `Simulado ${String(n || 1).padStart(2, "0")}`;
 }
 
+const DASHBOARD_CACHE_TTL_MS = 60_000;
+const DASHBOARD_CACHE_KEY = "aq.aluno.dashboard.cache";
+
+function readDashboardCache(uid: string): DashboardCache | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(`${DASHBOARD_CACHE_KEY}.${uid}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as DashboardCache;
+    if (!parsed || typeof parsed.ts !== "number") return null;
+    if (Date.now() - parsed.ts > DASHBOARD_CACHE_TTL_MS) return null;
+    if (!Array.isArray(parsed.sessions) || !Array.isArray(parsed.themePerformance)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeDashboardCache(uid: string, value: DashboardCache) {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(`${DASHBOARD_CACHE_KEY}.${uid}`, JSON.stringify(value));
+  } catch {
+    // noop
+  }
+}
+
+async function buildThemePerformance(items: SessionDoc[]): Promise<ThemePerformance[]> {
+  const byTheme = new Map<string, { correct: number; wrong: number; total: number }>();
+  const completed = items.filter((s) => s.status === "completed").slice(0, 8);
+
+  const questionToSessionThemes = new Map<string, string[]>();
+  const qidSet = new Set<string>();
+
+  for (const session of completed) {
+    const qids = normalizeQuestionIds(session.questionIds);
+    const fallbackThemes = toStringList(session.filters?.temas);
+    for (const qid of qids) {
+      if (!qid) continue;
+      qidSet.add(qid);
+      if (fallbackThemes.length) {
+        questionToSessionThemes.set(qid, fallbackThemes);
+      }
+    }
+  }
+
+  const allQids = Array.from(qidSet).slice(0, 120);
+  const docs = await Promise.all(
+    allQids.map(async (qid) => {
+      try {
+        const qSnap = await getDoc(doc(db, "questionsBank", qid));
+        if (!qSnap.exists()) return [qid, [] as string[]] as const;
+        const themes = extractQuestionThemes(qSnap.data() as QuestionThemeDoc);
+        return [qid, themes] as const;
+      } catch {
+        return [qid, [] as string[]] as const;
+      }
+    })
+  );
+
+  const themeCache = new Map<string, string[]>(docs);
+
+  for (const session of completed) {
+    const qids = normalizeQuestionIds(session.questionIds);
+    const fallbackThemes = toStringList(session.filters?.temas);
+
+    for (const qid of qids) {
+      const answer = session.answersMap?.[qid];
+      if (!answer) continue;
+
+      const fetchedThemes = themeCache.get(qid) ?? [];
+      const themes =
+        fetchedThemes.length > 0
+          ? fetchedThemes
+          : questionToSessionThemes.get(qid) ?? fallbackThemes;
+
+      for (const theme of themes) {
+        const current = byTheme.get(theme) ?? { correct: 0, wrong: 0, total: 0 };
+        current.total += 1;
+        if (answer.isCorrect) current.correct += 1;
+        else current.wrong += 1;
+        byTheme.set(theme, current);
+      }
+    }
+  }
+
+  return Array.from(byTheme.entries())
+    .map(([theme, agg]) => ({
+      theme,
+      total: agg.total,
+      correct: agg.correct,
+      wrong: agg.wrong,
+      accuracy: agg.total > 0 ? (agg.correct / agg.total) * 100 : 0,
+    }))
+    .sort((a, b) => {
+      if (b.total !== a.total) return b.total - a.total;
+      return b.accuracy - a.accuracy;
+    });
+}
+
 export default function DashboardClient() {
   const router = useRouter();
 
@@ -123,7 +229,7 @@ export default function DashboardClient() {
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
   const [themePerformance, setThemePerformance] = useState<ThemePerformance[]>([]);
 
-  async function load() {
+  async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
     if (!u) {
       setErr("Você precisa estar logado.");
@@ -131,12 +237,12 @@ export default function DashboardClient() {
       return;
     }
 
-    setLoading(true);
+    if (!keepVisible) setLoading(true);
     setErr("");
 
     try {
       const ref = collection(db, "users", u.uid, "sessions");
-      const qy = query(ref);
+      const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
       const snap = await getDocs(qy);
       const items: SessionDoc[] = snap.docs.map((docSnap) => ({
@@ -146,57 +252,23 @@ export default function DashboardClient() {
 
       items.sort((a, b) => tsToMs(b.updatedAt) - tsToMs(a.updatedAt));
       setSessions(items);
-
-      const byTheme = new Map<string, { correct: number; wrong: number; total: number }>();
-      const themeCache = new Map<string, string[]>();
-      const completed = items.filter((s) => s.status === "completed").slice(0, 12);
-
-      for (const session of completed) {
-        const qids = normalizeQuestionIds(session.questionIds);
-        const fallbackThemes = toStringList(session.filters?.temas);
-
-        for (const qid of qids) {
-          const answer = session.answersMap?.[qid];
-          if (!answer) continue;
-
-          let themes = themeCache.get(qid);
-          if (!themes) {
-            const qSnap = await getDoc(doc(db, "questionsBank", qid));
-            if (qSnap.exists()) {
-              themes = extractQuestionThemes(qSnap.data() as QuestionThemeDoc);
-            } else {
-              themes = [];
-            }
-            if (!themes.length && fallbackThemes.length) {
-              themes = fallbackThemes;
-            }
-            themeCache.set(qid, themes);
-          }
-
-          for (const theme of themes) {
-            const current = byTheme.get(theme) ?? { correct: 0, wrong: 0, total: 0 };
-            current.total += 1;
-            if (answer.isCorrect) current.correct += 1;
-            else current.wrong += 1;
-            byTheme.set(theme, current);
-          }
-        }
-      }
-
-      const perf = Array.from(byTheme.entries())
-        .map(([theme, agg]) => ({
-          theme,
-          total: agg.total,
-          correct: agg.correct,
-          wrong: agg.wrong,
-          accuracy: agg.total > 0 ? (agg.correct / agg.total) * 100 : 0,
-        }))
-        .sort((a, b) => {
-          if (b.total !== a.total) return b.total - a.total;
-          return b.accuracy - a.accuracy;
+      void buildThemePerformance(items)
+        .then((perf) => {
+          setThemePerformance(perf);
+          writeDashboardCache(u.uid, {
+            ts: Date.now(),
+            sessions: items,
+            themePerformance: perf,
+          });
+        })
+        .catch((error) => {
+          console.error("Falha ao calcular performance por tema:", error);
+          writeDashboardCache(u.uid, {
+            ts: Date.now(),
+            sessions: items,
+            themePerformance: [],
+          });
         });
-
-      setThemePerformance(perf);
     } catch (error: unknown) {
       console.error(error);
       setErr(getErrorMessage(error, "Falha ao carregar dados do dashboard."));
@@ -206,6 +278,17 @@ export default function DashboardClient() {
   }
 
   useEffect(() => {
+    const u = auth.currentUser;
+    if (u) {
+      const cached = readDashboardCache(u.uid);
+      if (cached) {
+        setSessions(cached.sessions);
+        setThemePerformance(cached.themePerformance);
+        setLoading(false);
+        void load({ keepVisible: true });
+        return;
+      }
+    }
     void load();
   }, []);
 
@@ -312,7 +395,7 @@ export default function DashboardClient() {
             {err}
           </div>
 
-          <Button className="mt-4" onClick={load}>
+          <Button className="mt-4" onClick={() => void load()}>
             Tentar novamente
           </Button>
         </div>
@@ -354,7 +437,7 @@ export default function DashboardClient() {
               <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Último simulado</div>
               <button
                 type="button"
-                onClick={load}
+                onClick={() => void load()}
                 className="text-xs font-semibold text-slate-500 transition hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 Atualizar
