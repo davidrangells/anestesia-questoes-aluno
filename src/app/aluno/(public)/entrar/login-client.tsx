@@ -11,6 +11,8 @@ import { auth } from "@/lib/firebase";
 
 function mapErroToMessage(code: string) {
   switch (code) {
+    case "sessao_ativa":
+      return "Sua conta foi acessada em outro dispositivo e esta sessão foi encerrada por segurança.";
     case "sem_acesso":
       return "Seu acesso ainda não está ativo. Se você já pagou, aguarde alguns minutos ou fale com o suporte.";
     case "verificacao":

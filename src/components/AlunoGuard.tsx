@@ -1,7 +1,15 @@
 "use client";
 
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, Timestamp } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  onSnapshot,
+  runTransaction,
+  serverTimestamp,
+  Timestamp,
+  updateDoc,
+} from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
@@ -44,14 +52,47 @@ function startOfToday() {
   return d;
 }
 
+function getClientSessionId(uid: string) {
+  if (typeof window === "undefined") return `server-${uid}`;
+
+  const key = `aq.aluno.active-session.${uid}`;
+  const existing = window.localStorage.getItem(key);
+  if (existing) return existing;
+
+  const generated =
+    typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+      ? crypto.randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  window.localStorage.setItem(key, generated);
+  return generated;
+}
+
 export default function AlunoGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [loading, setLoading] = useState(true);
   const redirectedRef = useRef(false);
+  const heartbeatRef = useRef<number | null>(null);
+  const activeSessionUnsubRef = useRef<(() => void) | null>(null);
+  const signingOutBySessionRef = useRef(false);
+
+  function clearSessionSync() {
+    if (heartbeatRef.current != null) {
+      window.clearInterval(heartbeatRef.current);
+      heartbeatRef.current = null;
+    }
+    if (activeSessionUnsubRef.current) {
+      activeSessionUnsubRef.current();
+      activeSessionUnsubRef.current = null;
+    }
+  }
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
+      clearSessionSync();
+      signingOutBySessionRef.current = false;
+
       try {
         if (!user) {
           if (!redirectedRef.current) {
@@ -80,12 +121,62 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           router.replace(`/aluno/assinatura?reason=${reason}`);
           return;
         }
+
+        const activeSessionRef = doc(db, "users", user.uid, "security", "activeSession");
+        const clientSessionId = getClientSessionId(user.uid);
+
+        await runTransaction(db, async (tx) => {
+          tx.set(
+            activeSessionRef,
+            {
+              uid: user.uid,
+              sessionId: clientSessionId,
+              device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
+              claimedAt: serverTimestamp(),
+              lastSeenAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            },
+            { merge: true }
+          );
+        });
+
+        activeSessionUnsubRef.current = onSnapshot(
+          activeSessionRef,
+          (snap) => {
+            const data = snap.data() as { sessionId?: unknown } | undefined;
+            const remoteSessionId = String(data?.sessionId ?? "").trim();
+            if (!remoteSessionId || remoteSessionId === clientSessionId) return;
+            if (signingOutBySessionRef.current) return;
+
+            signingOutBySessionRef.current = true;
+            clearSessionSync();
+            void auth.signOut().finally(() => {
+              router.replace("/aluno/entrar?erro=sessao_ativa");
+            });
+          },
+          () => {
+            // listener best-effort
+          }
+        );
+
+        heartbeatRef.current = window.setInterval(() => {
+          void updateDoc(activeSessionRef, {
+            sessionId: clientSessionId,
+            lastSeenAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+          }).catch(() => {
+            // heartbeat best-effort
+          });
+        }, 25_000);
       } finally {
         setLoading(false);
       }
     });
 
-    return () => unsub();
+    return () => {
+      clearSessionSync();
+      unsub();
+    };
   }, [router, pathname]);
 
   if (loading) {
