@@ -1,0 +1,80 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    // Lock e considerado "vivo" por 20 segundos.
+    function lockIsAlive(data) {
+      return data.lastSeenAt is timestamp
+        && data.lastSeenAt > request.time - duration.value(20, 's');
+    }
+
+    // Perfil do usuario (usado na tela de perfil)
+    match /users/{uid} {
+      allow read, write: if isOwner(uid);
+
+      // Simulados do aluno + doc tecnico de lock
+      match /sessions/{sessionId} {
+        allow read: if isOwner(uid);
+
+        // Regras especiais para o lock de sessao simultanea
+        allow create, update: if isOwner(uid)
+          && sessionId == "__active_session_lock__"
+          && (
+            // Sem lock anterior
+            !exists(/databases/$(database)/documents/users/$(uid)/sessions/__active_session_lock__)
+            // Mesmo dono de lock (mesmo sessionId pode renovar heartbeat)
+            || get(/databases/$(database)/documents/users/$(uid)/sessions/__active_session_lock__).data.sessionId
+               == request.resource.data.sessionId
+            // Lock antigo/expirado pode ser tomado por novo dispositivo
+            || !lockIsAlive(get(/databases/$(database)/documents/users/$(uid)/sessions/__active_session_lock__).data)
+          );
+
+        // Simulados normais (nao lock)
+        allow create, update, delete: if isOwner(uid)
+          && sessionId != "__active_session_lock__";
+      }
+    }
+
+    // Assinatura/acesso
+    match /entitlements/{uid} {
+      allow read: if isOwner(uid);
+      allow write: if false;
+    }
+
+    // Bancos de leitura do aluno
+    match /questionsBank/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /provas/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /temas/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Reporte de erro pelo aluno
+    match /erros_reportados/{id} {
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
+    // Fallback: nega tudo que nao foi explicitamente permitido
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
