@@ -245,6 +245,7 @@ export default function NovoSimuladoClient() {
     try {
       const selectedQuestions = await pickQuestions();
       const questionIds = selectedQuestions.map((question) => question.id);
+      // Mantemos a exibição em ordem fixa A..E no quiz; não salvar map de embaralhamento aqui.
 
       if (!questionIds.length) {
         alert("Nenhuma questão encontrada com esses filtros. Tente remover filtros.");
