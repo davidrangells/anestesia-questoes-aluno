@@ -95,6 +95,14 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
 
       try {
         if (!user) {
+          if (signingOutBySessionRef.current) {
+            if (!redirectedRef.current) {
+              redirectedRef.current = true;
+              router.replace("/aluno/entrar?erro=sessao_ativa");
+            }
+            return;
+          }
+
           if (!redirectedRef.current) {
             redirectedRef.current = true;
             router.replace("/aluno/entrar");

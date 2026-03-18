@@ -8,6 +8,7 @@ import {
   collection,
   doc,
   getDoc,
+  runTransaction,
   serverTimestamp,
   updateDoc,
 } from "firebase/firestore";
@@ -391,10 +392,14 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     const u = auth.currentUser;
     if (!u) return;
 
-    await updateDoc(doc(db, "users", u.uid, "sessions", sessionId), {
-      currentIndex: nextIndex,
-      updatedAt: serverTimestamp(),
-    });
+    try {
+      await updateDoc(doc(db, "users", u.uid, "sessions", sessionId), {
+        currentIndex: nextIndex,
+        updatedAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Falha ao persistir índice da sessão:", error);
+    }
   }
 
   async function onConfirm() {
@@ -406,53 +411,70 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     setIsSubmitting(true);
 
     try {
-      const existingAnswer = session.answersMap?.[currentQuestion.id];
-      if (existingAnswer && typeof existingAnswer === "object") {
-        const savedOptionId = safeStr(existingAnswer.selectedOptionId);
-        setSelectedOptionId(savedOptionId || null);
-        setConfirmed(true);
-        setIsCorrect(Boolean(existingAnswer.isCorrect));
-        return;
-      }
-
       const chosen = safeStr(selectedOptionId);
       const correct = safeStr(correctId);
-      const ok = !!(correct && chosen && correct === chosen);
 
-      const nextAnsweredCount = Number(session.answeredCount ?? 0) + 1;
-      const nextCorrectCount = Number(session.correctCount ?? 0) + (ok ? 1 : 0);
+      const sessionRef = doc(db, "users", u.uid, "sessions", sessionId);
+      const result = await runTransaction(db, async (tx) => {
+        const snap = await tx.get(sessionRef);
+        if (!snap.exists()) throw new Error("Sessão não encontrada.");
 
-      const total =
-        Number(session.totalQuestions ?? normalizeIdList(session.questionIds).length ?? 0) ||
-        questions.length ||
-        0;
+        const persisted = snap.data() as SessionDoc;
+        const existingAnswer = persisted.answersMap?.[currentQuestion.id];
+        if (existingAnswer && typeof existingAnswer === "object") {
+          return {
+            alreadyAnswered: true,
+            selectedOptionId: safeStr(existingAnswer.selectedOptionId),
+            isCorrect: Boolean(existingAnswer.isCorrect),
+            answeredCount: Number(persisted.answeredCount ?? 0),
+            correctCount: Number(persisted.correctCount ?? 0),
+            scorePercent: Number(persisted.scorePercent ?? 0),
+          };
+        }
 
-      const scorePercent = total > 0 ? Math.round((nextCorrectCount / total) * 100) : 0;
+        const ok = !!(correct && chosen && correct === chosen);
+        const nextAnsweredCount = Number(persisted.answeredCount ?? 0) + 1;
+        const nextCorrectCount = Number(persisted.correctCount ?? 0) + (ok ? 1 : 0);
+        const total =
+          Number(persisted.totalQuestions ?? normalizeIdList(persisted.questionIds).length ?? 0) ||
+          questions.length ||
+          0;
+        const scorePercent = total > 0 ? Math.round((nextCorrectCount / total) * 100) : 0;
 
-      await updateDoc(doc(db, "users", u.uid, "sessions", sessionId), {
-        answeredCount: nextAnsweredCount,
-        correctCount: nextCorrectCount,
-        scorePercent,
-        updatedAt: serverTimestamp(),
-        [`answersMap.${currentQuestion.id}`]: {
+        tx.update(sessionRef, {
+          answeredCount: nextAnsweredCount,
+          correctCount: nextCorrectCount,
+          scorePercent,
+          updatedAt: serverTimestamp(),
+          [`answersMap.${currentQuestion.id}`]: {
+            selectedOptionId: chosen,
+            isCorrect: ok,
+            answeredAt: serverTimestamp(),
+          },
+        });
+
+        return {
+          alreadyAnswered: false,
           selectedOptionId: chosen,
           isCorrect: ok,
-          answeredAt: serverTimestamp(),
-        },
+          answeredCount: nextAnsweredCount,
+          correctCount: nextCorrectCount,
+          scorePercent,
+        };
       });
 
       setSession((prev) =>
         prev
           ? {
               ...prev,
-              answeredCount: nextAnsweredCount,
-              correctCount: nextCorrectCount,
-              scorePercent,
+              answeredCount: result.answeredCount,
+              correctCount: result.correctCount,
+              scorePercent: result.scorePercent,
               answersMap: {
                 ...(prev.answersMap ?? {}),
                 [currentQuestion.id]: {
-                  selectedOptionId: chosen,
-                  isCorrect: ok,
+                  selectedOptionId: result.selectedOptionId,
+                  isCorrect: result.isCorrect,
                   answeredAt: new Date(),
                 },
               },
@@ -461,7 +483,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       );
 
       setConfirmed(true);
-      setIsCorrect(ok);
+      setSelectedOptionId(result.selectedOptionId || null);
+      setIsCorrect(result.isCorrect);
     } catch (e) {
       console.error(e);
       setErr("Não foi possível confirmar sua resposta.");

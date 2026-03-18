@@ -149,7 +149,7 @@ export default function ProvasPageClient() {
                 return (
                   <Link
                     key={p.id}
-                    href={`/aluno/provas/${p.id}`}
+                    href={`/aluno/simulados/novo?provaId=${encodeURIComponent(p.id)}`}
                     className={cn(
                       "group rounded-3xl border p-5 transition bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
                       "hover:shadow-[0_20px_60px_rgba(15,23,42,0.10)]"

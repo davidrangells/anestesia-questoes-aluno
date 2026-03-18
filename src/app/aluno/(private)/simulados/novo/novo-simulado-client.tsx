@@ -180,6 +180,13 @@ export default function NovoSimuladoClient() {
   }, [searchParams]);
 
   useEffect(() => {
+    const provaId = (searchParams.get("provaId") || "").trim();
+    if (!provaId || provas.length === 0) return;
+    if (!provas.some((prova) => prova.id === provaId)) return;
+    setSelectedProvas((prev) => (prev.includes(provaId) ? prev : [...prev, provaId]));
+  }, [searchParams, provas]);
+
+  useEffect(() => {
     const rawTema = (searchParams.get("tema") || "").trim();
     if (!rawTema || temas.length === 0) return;
 
