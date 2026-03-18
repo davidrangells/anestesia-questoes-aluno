@@ -181,7 +181,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         const clientSessionId = getClientSessionId(user.uid);
 
         try {
-          await runTransaction(db, async (tx) => {
+          const claimOk = await runTransaction(db, async (tx) => {
             const snap = await tx.get(fallbackSessionRef);
             const data = snap.data() as { sessionId?: unknown; lastSeenAt?: unknown } | undefined;
             const currentSessionId = String(data?.sessionId ?? "").trim();
@@ -193,7 +193,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
               currentSessionId !== clientSessionId &&
               isCurrentLockAlive
             ) {
-              throw new Error("session_taken");
+              return false;
             }
 
             tx.set(
@@ -210,13 +210,15 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
               },
               { merge: true }
             );
+            return true;
           });
-        } catch (error) {
-          if (error instanceof Error && error.message === "session_taken") {
+
+          if (!claimOk) {
             await auth.signOut();
             router.replace("/aluno/entrar?erro=sessao_ativa");
             return;
           }
+        } catch (error) {
           // Nao bloqueia acesso do aluno por falha de sincronizacao de sessao.
           // O controle de sessao simultanea fica em modo best-effort ate normalizar.
           console.error("Falha ao sincronizar lock de sessao:", error);
@@ -232,7 +234,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
 
             // Se perdeu o lock para outro dispositivo, nao tenta sobrescrever.
             if (currentSessionId && currentSessionId !== clientSessionId) {
-              throw new Error("lock_lost");
+              return false;
             }
 
             tx.set(
@@ -244,10 +246,12 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
               },
               { merge: true }
             );
-          }).catch((error) => {
-            if (error instanceof Error && error.message === "lock_lost") {
-              forceSessionLogout();
-            }
+            return true;
+          })
+          .then((ok) => {
+            if (ok === false) forceSessionLogout();
+          })
+          .catch(() => {
             // heartbeat best-effort
           });
         }, 8_000);
