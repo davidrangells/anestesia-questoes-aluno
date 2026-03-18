@@ -4,6 +4,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import {
   doc,
   getDoc,
+  getDocFromServer,
   onSnapshot,
   setDoc,
   serverTimestamp,
@@ -120,7 +121,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
 
     // Fallback de segurança para garantir exclusão de sessão mesmo sem onSnapshot.
     sessionCheckRef.current = window.setInterval(() => {
-      void getDoc(activeSessionRef)
+      void getDocFromServer(activeSessionRef)
         .then((snap) => {
           const data = snap.data() as { sessionId?: unknown } | undefined;
           const remoteSessionId = String(data?.sessionId ?? "").trim();
@@ -130,7 +131,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         .catch(() => {
           // best-effort
         });
-    }, 10_000);
+    }, 6_000);
   }, [forceSessionLogout]);
 
   useEffect(() => {
@@ -211,7 +212,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           }).catch(() => {
             // heartbeat best-effort
           });
-        }, 25_000);
+        }, 8_000);
       } finally {
         setLoading(false);
       }
