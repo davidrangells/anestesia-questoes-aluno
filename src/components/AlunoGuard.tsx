@@ -7,7 +7,6 @@ import {
   getDocFromServer,
   onSnapshot,
   runTransaction,
-  setDoc,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -182,21 +181,42 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         const clientSessionId = getClientSessionId(user.uid);
 
         try {
-          await setDoc(
-            fallbackSessionRef,
-            {
-              control: true,
-              kind: "session_lock",
-              uid: user.uid,
-              sessionId: clientSessionId,
-              device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
-              claimedAt: serverTimestamp(),
-              lastSeenAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
+          await runTransaction(db, async (tx) => {
+            const snap = await tx.get(fallbackSessionRef);
+            const data = snap.data() as { sessionId?: unknown; lastSeenAt?: unknown } | undefined;
+            const currentSessionId = String(data?.sessionId ?? "").trim();
+            const currentLastSeenMs = toDate(data?.lastSeenAt)?.getTime() ?? 0;
+            const isCurrentLockAlive = currentLastSeenMs > 0 && Date.now() - currentLastSeenMs < 20_000;
+
+            if (
+              currentSessionId &&
+              currentSessionId !== clientSessionId &&
+              isCurrentLockAlive
+            ) {
+              throw new Error("session_taken");
+            }
+
+            tx.set(
+              fallbackSessionRef,
+              {
+                control: true,
+                kind: "session_lock",
+                uid: user.uid,
+                sessionId: clientSessionId,
+                device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
+                claimedAt: serverTimestamp(),
+                lastSeenAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          });
         } catch (error) {
+          if (error instanceof Error && error.message === "session_taken") {
+            await auth.signOut();
+            router.replace("/aluno/entrar?erro=sessao_ativa");
+            return;
+          }
           // Nao bloqueia acesso do aluno por falha de sincronizacao de sessao.
           // O controle de sessao simultanea fica em modo best-effort ate normalizar.
           console.error("Falha ao sincronizar lock de sessao:", error);
