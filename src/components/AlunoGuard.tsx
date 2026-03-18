@@ -79,6 +79,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
   const sessionCheckRef = useRef<number | null>(null);
   const activeSessionUnsubRef = useRef<(() => void) | null>(null);
   const signingOutBySessionRef = useRef(false);
+  const sessionCheckErrorsRef = useRef(0);
 
   const clearSessionSync = useCallback(() => {
     if (heartbeatRef.current != null) {
@@ -105,9 +106,27 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
   }, [clearSessionSync, router]);
 
   const attachSessionMonitor = useCallback((activeSessionRef: ReturnType<typeof doc>, clientSessionId: string) => {
+    const verifyOwnership = () => {
+      void getDocFromServer(activeSessionRef)
+        .then((snap) => {
+          sessionCheckErrorsRef.current = 0;
+          const data = snap.data() as { sessionId?: unknown } | undefined;
+          const remoteSessionId = String(data?.sessionId ?? "").trim();
+          if (!remoteSessionId || remoteSessionId === clientSessionId) return;
+          forceSessionLogout();
+        })
+        .catch(() => {
+          sessionCheckErrorsRef.current += 1;
+          if (sessionCheckErrorsRef.current >= 3) {
+            forceSessionLogout();
+          }
+        });
+    };
+
     activeSessionUnsubRef.current = onSnapshot(
       activeSessionRef,
       (snap) => {
+        sessionCheckErrorsRef.current = 0;
         const data = snap.data() as { sessionId?: unknown } | undefined;
         const remoteSessionId = String(data?.sessionId ?? "").trim();
         if (!remoteSessionId || remoteSessionId === clientSessionId) return;
@@ -120,17 +139,25 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
 
     // Fallback de segurança para garantir exclusão de sessão mesmo sem onSnapshot.
     sessionCheckRef.current = window.setInterval(() => {
-      void getDocFromServer(activeSessionRef)
-        .then((snap) => {
-          const data = snap.data() as { sessionId?: unknown } | undefined;
-          const remoteSessionId = String(data?.sessionId ?? "").trim();
-          if (!remoteSessionId || remoteSessionId === clientSessionId) return;
-          forceSessionLogout();
-        })
-        .catch(() => {
-          // best-effort
-        });
-    }, 6_000);
+      verifyOwnership();
+    }, 3_000);
+
+    const onWindowFocus = () => verifyOwnership();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") verifyOwnership();
+    };
+
+    window.addEventListener("focus", onWindowFocus);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    const previousUnsub = activeSessionUnsubRef.current;
+    activeSessionUnsubRef.current = () => {
+      window.removeEventListener("focus", onWindowFocus);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      previousUnsub?.();
+    };
+
+    verifyOwnership();
   }, [forceSessionLogout]);
 
   useEffect(() => {
@@ -179,23 +206,11 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
 
         const fallbackSessionRef = doc(db, "users", user.uid, "sessions", FALLBACK_LOCK_DOC_ID);
         const clientSessionId = getClientSessionId(user.uid);
+        let lockConfirmed = false;
+        let lockSoftBypass = false;
 
         try {
           const claimOk = await runTransaction(db, async (tx) => {
-            const snap = await tx.get(fallbackSessionRef);
-            const data = snap.data() as { sessionId?: unknown; lastSeenAt?: unknown } | undefined;
-            const currentSessionId = String(data?.sessionId ?? "").trim();
-            const currentLastSeenMs = toDate(data?.lastSeenAt)?.getTime() ?? 0;
-            const isCurrentLockAlive = currentLastSeenMs > 0 && Date.now() - currentLastSeenMs < 20_000;
-
-            if (
-              currentSessionId &&
-              currentSessionId !== clientSessionId &&
-              isCurrentLockAlive
-            ) {
-              return false;
-            }
-
             tx.set(
               fallbackSessionRef,
               {
@@ -218,10 +233,45 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
             router.replace("/aluno/entrar?erro=sessao_ativa");
             return;
           }
+          lockConfirmed = true;
         } catch (error) {
-          // Nao bloqueia acesso do aluno por falha de sincronizacao de sessao.
-          // O controle de sessao simultanea fica em modo best-effort ate normalizar.
+          const code = (error as { code?: string })?.code ?? "";
+          if (code.includes("permission-denied") || code.includes("unavailable")) {
+            lockSoftBypass = true;
+          }
           console.error("Falha ao sincronizar lock de sessao:", error);
+        }
+
+        if (!lockConfirmed) {
+          try {
+            const lockSnap = await getDocFromServer(fallbackSessionRef);
+            const lockData = lockSnap.data() as { sessionId?: unknown; lastSeenAt?: unknown } | undefined;
+            const remoteSessionId = String(lockData?.sessionId ?? "").trim();
+            const remoteLastSeenMs = toDate(lockData?.lastSeenAt)?.getTime() ?? 0;
+            const lockAlive = remoteLastSeenMs > 0 && Date.now() - remoteLastSeenMs < 20_000;
+
+            if (remoteSessionId && remoteSessionId !== clientSessionId && lockAlive) {
+              await auth.signOut();
+              router.replace("/aluno/entrar?erro=sessao_ativa");
+              return;
+            }
+
+            if (remoteSessionId === clientSessionId) {
+              lockConfirmed = true;
+            }
+          } catch (error) {
+            const code = (error as { code?: string })?.code ?? "";
+            if (code.includes("permission-denied") || code.includes("unavailable")) {
+              lockSoftBypass = true;
+            }
+            console.error("Falha ao confirmar lock de sessao no servidor:", error);
+          }
+        }
+
+        if (!lockConfirmed && !lockSoftBypass) {
+          await auth.signOut();
+          router.replace("/aluno/entrar?erro=verificacao");
+          return;
         }
 
         attachSessionMonitor(fallbackSessionRef, clientSessionId);
