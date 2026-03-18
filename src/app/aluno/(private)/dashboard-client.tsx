@@ -23,6 +23,8 @@ type SessionDoc = {
   filters?: {
     temas?: string[];
   };
+  control?: boolean;
+  kind?: string;
 };
 
 type TimestampLike = {
@@ -260,7 +262,8 @@ export default function DashboardClient() {
       const items: SessionDoc[] = snap.docs.map((docSnap) => ({
         id: docSnap.id,
         ...(docSnap.data() as Omit<SessionDoc, "id">),
-      }));
+      }))
+      .filter((item) => item.id !== "__active_session_lock__" && item.control !== true && item.kind !== "session_lock");
 
       items.sort((a, b) => tsToMs(b.updatedAt) - tsToMs(a.updatedAt));
       setSessions(items);

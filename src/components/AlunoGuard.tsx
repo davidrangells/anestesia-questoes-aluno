@@ -6,6 +6,7 @@ import {
   getDoc,
   onSnapshot,
   runTransaction,
+  setDoc,
   serverTimestamp,
   Timestamp,
   updateDoc,
@@ -67,6 +68,8 @@ function getClientSessionId(uid: string) {
   window.localStorage.setItem(key, generated);
   return generated;
 }
+
+const FALLBACK_LOCK_DOC_ID = "__active_session_lock__";
 
 export default function AlunoGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -175,14 +178,15 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           return;
         }
 
-        const activeSessionRef = doc(db, "users", user.uid, "security", "activeSession");
+        const primarySessionRef = doc(db, "users", user.uid, "security", "activeSession");
+        const fallbackSessionRef = doc(db, "users", user.uid, "sessions", FALLBACK_LOCK_DOC_ID);
         const clientSessionId = getClientSessionId(user.uid);
 
-        let sessionSyncReady = false;
+        let lockRef: ReturnType<typeof doc> | null = null;
         try {
           await runTransaction(db, async (tx) => {
             tx.set(
-              activeSessionRef,
+              primarySessionRef,
               {
                 uid: user.uid,
                 sessionId: clientSessionId,
@@ -194,18 +198,36 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
               { merge: true }
             );
           });
-          sessionSyncReady = true;
-        } catch (error) {
-          // Nao bloqueia acesso do aluno por falha de sincronizacao de sessao.
-          // O controle de sessao simultanea fica em modo best-effort ate normalizar.
-          console.error("Falha ao sincronizar sessao ativa:", error);
+          lockRef = primarySessionRef;
+        } catch (primaryError) {
+          try {
+            await setDoc(
+              fallbackSessionRef,
+              {
+                control: true,
+                kind: "session_lock",
+                uid: user.uid,
+                sessionId: clientSessionId,
+                device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
+                claimedAt: serverTimestamp(),
+                lastSeenAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+            lockRef = fallbackSessionRef;
+          } catch (fallbackError) {
+            // Nao bloqueia acesso do aluno por falha de sincronizacao de sessao.
+            // O controle de sessao simultanea fica em modo best-effort ate normalizar.
+            console.error("Falha ao sincronizar sessao ativa (primary/fallback):", primaryError, fallbackError);
+          }
         }
 
-        if (sessionSyncReady) {
-          attachSessionMonitor(activeSessionRef, clientSessionId);
+        if (lockRef) {
+          attachSessionMonitor(lockRef, clientSessionId);
 
           heartbeatRef.current = window.setInterval(() => {
-            void updateDoc(activeSessionRef, {
+            void updateDoc(lockRef, {
               sessionId: clientSessionId,
               lastSeenAt: serverTimestamp(),
               updatedAt: serverTimestamp(),

@@ -31,6 +31,8 @@ type SessionDoc = {
   scorePercent?: number;
   updatedAt?: unknown;
   createdAt?: unknown;
+  control?: boolean;
+  kind?: string;
 };
 
 type TimestampLike = {
@@ -133,7 +135,8 @@ export default function SimuladosPageClient() {
       const list: SessionDoc[] = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<SessionDoc, "id">),
-      }));
+      }))
+      .filter((item) => item.id !== "__active_session_lock__" && item.control !== true && item.kind !== "session_lock");
 
       setSessions(list);
     } catch (error: unknown) {
