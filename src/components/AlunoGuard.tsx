@@ -178,6 +178,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         const activeSessionRef = doc(db, "users", user.uid, "security", "activeSession");
         const clientSessionId = getClientSessionId(user.uid);
 
+        let sessionSyncReady = false;
         try {
           await runTransaction(db, async (tx) => {
             tx.set(
@@ -193,23 +194,26 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
               { merge: true }
             );
           });
-        } catch {
-          await auth.signOut();
-          router.replace("/aluno/entrar?erro=verificacao");
-          return;
+          sessionSyncReady = true;
+        } catch (error) {
+          // Nao bloqueia acesso do aluno por falha de sincronizacao de sessao.
+          // O controle de sessao simultanea fica em modo best-effort ate normalizar.
+          console.error("Falha ao sincronizar sessao ativa:", error);
         }
 
-        attachSessionMonitor(activeSessionRef, clientSessionId);
+        if (sessionSyncReady) {
+          attachSessionMonitor(activeSessionRef, clientSessionId);
 
-        heartbeatRef.current = window.setInterval(() => {
-          void updateDoc(activeSessionRef, {
-            sessionId: clientSessionId,
-            lastSeenAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }).catch(() => {
-            // heartbeat best-effort
-          });
-        }, 25_000);
+          heartbeatRef.current = window.setInterval(() => {
+            void updateDoc(activeSessionRef, {
+              sessionId: clientSessionId,
+              lastSeenAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            }).catch(() => {
+              // heartbeat best-effort
+            });
+          }, 25_000);
+        }
       } finally {
         setLoading(false);
       }
