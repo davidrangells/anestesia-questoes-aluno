@@ -6,10 +6,10 @@ import {
   getDoc,
   getDocFromServer,
   onSnapshot,
+  runTransaction,
   setDoc,
   serverTimestamp,
   Timestamp,
-  updateDoc,
 } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -205,11 +205,29 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         attachSessionMonitor(fallbackSessionRef, clientSessionId);
 
         heartbeatRef.current = window.setInterval(() => {
-          void updateDoc(fallbackSessionRef, {
-            sessionId: clientSessionId,
-            lastSeenAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          }).catch(() => {
+          void runTransaction(db, async (tx) => {
+            const snap = await tx.get(fallbackSessionRef);
+            const data = snap.data() as { sessionId?: unknown } | undefined;
+            const currentSessionId = String(data?.sessionId ?? "").trim();
+
+            // Se perdeu o lock para outro dispositivo, nao tenta sobrescrever.
+            if (currentSessionId && currentSessionId !== clientSessionId) {
+              throw new Error("lock_lost");
+            }
+
+            tx.set(
+              fallbackSessionRef,
+              {
+                sessionId: clientSessionId,
+                lastSeenAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          }).catch((error) => {
+            if (error instanceof Error && error.message === "lock_lost") {
+              forceSessionLogout();
+            }
             // heartbeat best-effort
           });
         }, 8_000);
@@ -222,7 +240,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
       clearSessionSync();
       unsub();
     };
-  }, [router, pathname, clearSessionSync, attachSessionMonitor]);
+  }, [router, pathname, clearSessionSync, attachSessionMonitor, forceSessionLogout]);
 
   if (loading) {
     return (
