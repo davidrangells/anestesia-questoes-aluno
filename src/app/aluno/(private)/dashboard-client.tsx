@@ -121,6 +121,18 @@ function formatSimuladoNumber(n: number | null | undefined) {
   return `Simulado ${String(n || 1).padStart(2, "0")}`;
 }
 
+function formatRelativeStudyTime(ms: number) {
+  if (!ms) return "Sem atividade recente";
+  const diff = Date.now() - ms;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < hour) return "Estudou há menos de 1h";
+  if (diff < day) return `Estudou há ${Math.max(1, Math.floor(diff / hour))}h`;
+  const days = Math.max(1, Math.floor(diff / day));
+  return days === 1 ? "Último estudo: ontem" : `Último estudo: há ${days} dias`;
+}
+
 const DASHBOARD_CACHE_TTL_MS = 60_000;
 const DASHBOARD_CACHE_KEY = "aq.aluno.dashboard.cache";
 
@@ -315,6 +327,10 @@ export default function DashboardClient() {
   }, [sessions]);
 
   const lastSession = useMemo(() => sessions[0] ?? null, [sessions]);
+  const inProgressSession = useMemo(
+    () => sessions.find((session) => session.status !== "completed") ?? null,
+    [sessions]
+  );
   const recentTop3 = useMemo(() => sessions.slice(0, 3), [sessions]);
   const sessionNumberById = useMemo(() => {
     const map = new Map<string, number>();
@@ -354,6 +370,39 @@ export default function DashboardClient() {
         };
       });
   }, [sessions, sessionNumberById]);
+  const now = Date.now();
+  const last7dStart = now - 7 * 24 * 60 * 60 * 1000;
+  const prev7dStart = now - 14 * 24 * 60 * 60 * 1000;
+  const sessionsLast7d = useMemo(
+    () => sessions.filter((s) => tsToMs(s.updatedAt || s.createdAt) >= last7dStart),
+    [sessions, last7dStart]
+  );
+  const sessionsPrev7d = useMemo(
+    () =>
+      sessions.filter((s) => {
+        const ts = tsToMs(s.updatedAt || s.createdAt);
+        return ts >= prev7dStart && ts < last7dStart;
+      }),
+    [sessions, prev7dStart, last7dStart]
+  );
+  const stats7d = useMemo(() => {
+    const answered = sessionsLast7d.reduce((acc, s) => acc + safeNum(s.answeredCount), 0);
+    const correct = sessionsLast7d.reduce((acc, s) => acc + safeNum(s.correctCount), 0);
+    const completed = sessionsLast7d.filter((s) => s.status === "completed").length;
+    const accuracy = answered > 0 ? (correct / answered) * 100 : 0;
+    return { answered, correct, completed, accuracy };
+  }, [sessionsLast7d]);
+  const prevAccuracy7d = useMemo(() => {
+    const answered = sessionsPrev7d.reduce((acc, s) => acc + safeNum(s.answeredCount), 0);
+    const correct = sessionsPrev7d.reduce((acc, s) => acc + safeNum(s.correctCount), 0);
+    return answered > 0 ? (correct / answered) * 100 : 0;
+  }, [sessionsPrev7d]);
+  const trendLabel = useMemo(() => {
+    if (sessionsPrev7d.length === 0 || sessionsLast7d.length === 0) return "Sem comparação suficiente";
+    const diff = stats7d.accuracy - prevAccuracy7d;
+    if (Math.abs(diff) < 1) return "Tendência estável";
+    return diff > 0 ? `Subiu ${Math.round(diff)} p.p. vs semana anterior` : `Caiu ${Math.round(Math.abs(diff))} p.p. vs semana anterior`;
+  }, [sessionsPrev7d.length, sessionsLast7d.length, stats7d.accuracy, prevAccuracy7d]);
 
   if (loading) {
     return (
@@ -426,9 +475,88 @@ export default function DashboardClient() {
   const recommendation = needsFocus
     ? `Foque em ${needsFocus.theme}: ${needsFocus.accuracy.toFixed(0)}% de acerto em ${needsFocus.total} questões.`
     : "Complete mais simulados para liberar recomendações por tema.";
+  const recommendationHref = needsFocus
+    ? `/aluno/simulados/novo?tema=${encodeURIComponent(needsFocus.theme)}&qtd=15`
+    : "/aluno/simulados/novo?qtd=10";
+  const lastStudyLabel = formatRelativeStudyTime(tsToMs(lastSession?.updatedAt || lastSession?.createdAt));
 
   return (
     <div className="space-y-6 overflow-x-hidden">
+      <Card>
+        <CardHeader className="space-y-4">
+          <div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Seu painel de estudo</div>
+            <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">Próximo passo recomendado</div>
+            <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{lastStudyLabel}</div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <Button
+              className="w-full"
+              onClick={() =>
+                router.push(
+                  inProgressSession ? `/aluno/simulados/${inProgressSession.id}` : "/aluno/simulados/novo"
+                )
+              }
+            >
+              {inProgressSession ? "Continuar último simulado" : "Iniciar simulado"}
+            </Button>
+
+            <Button className="w-full" variant="secondary" onClick={() => router.push("/aluno/simulados/novo")}>
+              Novo simulado
+            </Button>
+
+            <Button className="w-full" variant="secondary" onClick={() => router.push(recommendationHref)}>
+              Reforçar tema fraco
+            </Button>
+          </div>
+        </CardHeader>
+      </Card>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Últimos 7 dias</div>
+            <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">Resumo da semana</div>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Respondidas</div>
+                <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{stats7d.answered}</div>
+              </div>
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Acerto</div>
+                <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{formatPct(stats7d.accuracy)}</div>
+              </div>
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Concluídos</div>
+                <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{stats7d.completed}</div>
+              </div>
+            </div>
+            <div className="text-sm text-slate-600 dark:text-slate-300">{trendLabel}</div>
+          </CardBody>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Plano sugerido</div>
+            <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
+              {needsFocus ? `Treino de ${needsFocus.theme}` : "Simulado rápido"}
+            </div>
+          </CardHeader>
+          <CardBody className="space-y-3">
+            <div className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button onClick={() => router.push(recommendationHref)}>Treino recomendado</Button>
+              <Button variant="secondary" onClick={() => router.push("/aluno/simulados/novo?qtd=10")}>
+                Sprint 10 questões
+              </Button>
+            </div>
+          </CardBody>
+        </Card>
+      </div>
+
       {/* Último simulado */}
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">

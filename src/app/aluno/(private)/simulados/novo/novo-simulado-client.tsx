@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { addDoc, collection, getDocs, limit, orderBy, query, serverTimestamp, where } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -104,6 +104,7 @@ function extractLevelTokens(q: QuestionBankDoc): string[] {
 
 export default function NovoSimuladoClient() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const user = auth.currentUser;
 
   const [provas, setProvas] = useState<Prova[]>([]);
@@ -170,6 +171,24 @@ export default function NovoSimuladoClient() {
     };
     run();
   }, []);
+
+  useEffect(() => {
+    const rawQtd = Number(searchParams.get("qtd"));
+    if ([10, 20, 30, 50].includes(rawQtd)) {
+      setQtd(rawQtd);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const rawTema = (searchParams.get("tema") || "").trim();
+    if (!rawTema || temas.length === 0) return;
+
+    const normalized = rawTema.toLocaleLowerCase("pt-BR");
+    const matched = temas.find((tema) => tema.toLocaleLowerCase("pt-BR") === normalized);
+    if (!matched) return;
+
+    setSelectedTemas((prev) => (prev.includes(matched) ? prev : [...prev, matched]));
+  }, [searchParams, temas]);
 
   // ✅ examTypes aceitos (usa sigla se existir)
   const selectedExamTokens = useMemo(() => {
