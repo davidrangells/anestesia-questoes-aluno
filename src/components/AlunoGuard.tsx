@@ -11,7 +11,7 @@ import {
   updateDoc,
 } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { auth, db } from "@/lib/firebase";
 
 type TimestampLike = {
@@ -74,10 +74,11 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
   const redirectedRef = useRef(false);
   const heartbeatRef = useRef<number | null>(null);
+  const sessionCheckRef = useRef<number | null>(null);
   const activeSessionUnsubRef = useRef<(() => void) | null>(null);
   const signingOutBySessionRef = useRef(false);
 
-  function clearSessionSync() {
+  const clearSessionSync = useCallback(() => {
     if (heartbeatRef.current != null) {
       window.clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
@@ -86,12 +87,56 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
       activeSessionUnsubRef.current();
       activeSessionUnsubRef.current = null;
     }
-  }
+    if (sessionCheckRef.current != null) {
+      window.clearInterval(sessionCheckRef.current);
+      sessionCheckRef.current = null;
+    }
+  }, []);
+
+  const forceSessionLogout = useCallback(() => {
+    if (signingOutBySessionRef.current) return;
+    signingOutBySessionRef.current = true;
+    clearSessionSync();
+    void auth.signOut().finally(() => {
+      router.replace("/aluno/entrar?erro=sessao_ativa");
+    });
+  }, [clearSessionSync, router]);
+
+  const attachSessionMonitor = useCallback((activeSessionRef: ReturnType<typeof doc>, clientSessionId: string) => {
+    activeSessionUnsubRef.current = onSnapshot(
+      activeSessionRef,
+      (snap) => {
+        const data = snap.data() as { sessionId?: unknown } | undefined;
+        const remoteSessionId = String(data?.sessionId ?? "").trim();
+        if (!remoteSessionId || remoteSessionId === clientSessionId) return;
+        forceSessionLogout();
+      },
+      () => {
+        // fallback para ambientes onde o listener real-time falhar
+      }
+    );
+
+    // Fallback de segurança para garantir exclusão de sessão mesmo sem onSnapshot.
+    sessionCheckRef.current = window.setInterval(() => {
+      void getDoc(activeSessionRef)
+        .then((snap) => {
+          const data = snap.data() as { sessionId?: unknown } | undefined;
+          const remoteSessionId = String(data?.sessionId ?? "").trim();
+          if (!remoteSessionId || remoteSessionId === clientSessionId) return;
+          forceSessionLogout();
+        })
+        .catch(() => {
+          // best-effort
+        });
+    }, 10_000);
+  }, [forceSessionLogout]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       clearSessionSync();
-      signingOutBySessionRef.current = false;
+      if (user) {
+        signingOutBySessionRef.current = false;
+      }
 
       try {
         if (!user) {
@@ -133,39 +178,28 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         const activeSessionRef = doc(db, "users", user.uid, "security", "activeSession");
         const clientSessionId = getClientSessionId(user.uid);
 
-        await runTransaction(db, async (tx) => {
-          tx.set(
-            activeSessionRef,
-            {
-              uid: user.uid,
-              sessionId: clientSessionId,
-              device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
-              claimedAt: serverTimestamp(),
-              lastSeenAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            },
-            { merge: true }
-          );
-        });
+        try {
+          await runTransaction(db, async (tx) => {
+            tx.set(
+              activeSessionRef,
+              {
+                uid: user.uid,
+                sessionId: clientSessionId,
+                device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
+                claimedAt: serverTimestamp(),
+                lastSeenAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              },
+              { merge: true }
+            );
+          });
+        } catch {
+          await auth.signOut();
+          router.replace("/aluno/entrar?erro=verificacao");
+          return;
+        }
 
-        activeSessionUnsubRef.current = onSnapshot(
-          activeSessionRef,
-          (snap) => {
-            const data = snap.data() as { sessionId?: unknown } | undefined;
-            const remoteSessionId = String(data?.sessionId ?? "").trim();
-            if (!remoteSessionId || remoteSessionId === clientSessionId) return;
-            if (signingOutBySessionRef.current) return;
-
-            signingOutBySessionRef.current = true;
-            clearSessionSync();
-            void auth.signOut().finally(() => {
-              router.replace("/aluno/entrar?erro=sessao_ativa");
-            });
-          },
-          () => {
-            // listener best-effort
-          }
-        );
+        attachSessionMonitor(activeSessionRef, clientSessionId);
 
         heartbeatRef.current = window.setInterval(() => {
           void updateDoc(activeSessionRef, {
@@ -185,7 +219,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
       clearSessionSync();
       unsub();
     };
-  }, [router, pathname]);
+  }, [router, pathname, clearSessionSync, attachSessionMonitor]);
 
   if (loading) {
     return (
