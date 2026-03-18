@@ -108,6 +108,7 @@ export default function NovoSimuladoClient() {
 
   const [provas, setProvas] = useState<Prova[]>([]);
   const [temas, setTemas] = useState<string[]>([]);
+  const [questionsPool, setQuestionsPool] = useState<QuestionBankDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
 
@@ -147,11 +148,15 @@ export default function NovoSimuladoClient() {
 
         try {
           const qbSnap = await getDocs(collection(db, "questionsBank"));
+          const pool: QuestionBankDoc[] = [];
           qbSnap.docs.forEach((d) => {
             const data = d.data() as Omit<QuestionBankDoc, "id">;
-            const themesFromQuestion = extractThemes({ id: d.id, ...data });
+            const q = { id: d.id, ...data };
+            pool.push(q);
+            const themesFromQuestion = extractThemes(q);
             themesFromQuestion.forEach((theme) => collectedThemes.add(theme));
           });
+          setQuestionsPool(pool);
         } catch {
           // mantém os temas já coletados da coleção "temas"
         }
@@ -205,35 +210,122 @@ export default function NovoSimuladoClient() {
     return temas.filter((t) => t.toLowerCase().includes(q));
   }, [temas, themeQuery]);
 
-  async function pickQuestions(): Promise<QuestionBankDoc[]> {
-    const snap = await getDocs(collection(db, "questionsBank"));
+  const activeQuestions = useMemo(
+    () => questionsPool.filter((q) => q.isActive !== false),
+    [questionsPool]
+  );
 
-    const all: QuestionBankDoc[] = snap.docs.map((d) => ({
-      id: d.id,
-      ...(d.data() as Omit<QuestionBankDoc, "id">),
-    }));
+  function matchesFilters(
+    q: QuestionBankDoc,
+    {
+      examTokens,
+      niveis,
+      temasSelecionados,
+    }: {
+      examTokens: string[];
+      niveis: string[];
+      temasSelecionados: string[];
+    }
+  ) {
+    if (examTokens.length > 0) {
+      const tokens = extractExamTokens(q);
+      if (!tokens.some((token) => examTokens.includes(token))) return false;
+    }
 
-    const activeOnly = all.filter((q) => q.isActive !== false);
+    if (niveis.length > 0) {
+      const levels = extractLevelTokens(q);
+      if (!levels.some((level) => niveis.includes(level))) return false;
+    }
 
-    const filtered = activeOnly.filter((q) => {
-      if (selectedExamTokens.length > 0) {
-        const tokens = extractExamTokens(q);
-        if (!tokens.some((token) => selectedExamTokens.includes(token))) return false;
-      }
+    if (temasSelecionados.length > 0) {
+      const qThemes = extractThemes(q);
+      if (!temasSelecionados.some((t) => qThemes.includes(t))) return false;
+    }
 
-      if (selectedNiveis.length > 0) {
-        const levels = extractLevelTokens(q);
-        if (!levels.some((level) => selectedNiveis.includes(level))) return false;
-      }
+    return true;
+  }
 
-      if (selectedTemas.length > 0) {
-        const themes = extractThemes(q);
-        const has = selectedTemas.some((t) => themes.includes(t));
-        if (!has) return false;
-      }
+  const availableQuestions = useMemo(
+    () =>
+      activeQuestions.filter((q) =>
+        matchesFilters(q, {
+          examTokens: selectedExamTokens,
+          niveis: selectedNiveis,
+          temasSelecionados: selectedTemas,
+        })
+      ),
+    [activeQuestions, selectedExamTokens, selectedNiveis, selectedTemas]
+  );
 
-      return true;
+  const availableCount = availableQuestions.length;
+
+  const provaCounts = useMemo(() => {
+    const entries = provas.map((p) => {
+      const provaTokens = [p.sigla, p.id, p.nome].map(norm).filter(Boolean);
+      const count = activeQuestions.filter(
+        (q) =>
+          matchesFilters(q, {
+            examTokens: provaTokens,
+            niveis: selectedNiveis,
+            temasSelecionados: selectedTemas,
+          })
+      ).length;
+      return [p.id, count] as const;
     });
+
+    return Object.fromEntries(entries) as Record<string, number>;
+  }, [provas, activeQuestions, selectedNiveis, selectedTemas]);
+
+  const nivelCounts = useMemo(() => {
+    const entries = ["R1", "R2", "R3"].map((nivel) => {
+      const count = activeQuestions.filter((q) =>
+        matchesFilters(q, {
+          examTokens: selectedExamTokens,
+          niveis: [nivel],
+          temasSelecionados: selectedTemas,
+        })
+      ).length;
+      return [nivel, count] as const;
+    });
+
+    return Object.fromEntries(entries) as Record<string, number>;
+  }, [activeQuestions, selectedExamTokens, selectedTemas]);
+
+  const temaCounts = useMemo(() => {
+    const entries = temas.map((tema) => {
+      const count = activeQuestions.filter((q) =>
+        matchesFilters(q, {
+          examTokens: selectedExamTokens,
+          niveis: selectedNiveis,
+          temasSelecionados: [tema],
+        })
+      ).length;
+      return [tema, count] as const;
+    });
+
+    return Object.fromEntries(entries) as Record<string, number>;
+  }, [temas, activeQuestions, selectedExamTokens, selectedNiveis]);
+
+  async function pickQuestions(): Promise<QuestionBankDoc[]> {
+    const source =
+      questionsPool.length > 0
+        ? questionsPool
+        : (
+            await getDocs(collection(db, "questionsBank"))
+          ).docs.map((d) => ({
+            id: d.id,
+            ...(d.data() as Omit<QuestionBankDoc, "id">),
+          }));
+
+    const filtered = source
+      .filter((q) => q.isActive !== false)
+      .filter((q) =>
+        matchesFilters(q, {
+          examTokens: selectedExamTokens,
+          niveis: selectedNiveis,
+          temasSelecionados: selectedTemas,
+        })
+      );
 
     return shuffle(filtered).slice(0, qtd);
   }
@@ -248,7 +340,6 @@ export default function NovoSimuladoClient() {
       // Mantemos a exibição em ordem fixa A..E no quiz; não salvar map de embaralhamento aqui.
 
       if (!questionIds.length) {
-        alert("Nenhuma questão encontrada com esses filtros. Tente remover filtros.");
         return;
       }
 
@@ -286,6 +377,8 @@ export default function NovoSimuladoClient() {
     "px-3 py-2 rounded-full text-sm font-semibold border transition max-w-full truncate";
   const pillOn = "bg-slate-900 text-white border-slate-900 dark:bg-blue-500 dark:border-blue-500";
   const pillOff = "bg-white border-slate-200 text-slate-800 hover:bg-slate-50";
+  const canCreate = !creating && availableCount > 0;
+  const effectiveQuestionCount = Math.min(qtd, availableCount);
 
   return (
     <div className="space-y-6">
@@ -309,14 +402,16 @@ export default function NovoSimuladoClient() {
                 {provas.map((p) => {
                   const active = selectedProvas.includes(p.id);
                   const label = p.sigla || p.nome || p.id;
+                  const count = provaCounts[p.id] ?? 0;
                   return (
                     <button
                       key={p.id}
                       onClick={() => setSelectedProvas((prev) => toggle(prev, p.id))}
-                      className={`${pillBase} ${active ? pillOn : pillOff}`}
+                      disabled={!active && count === 0}
+                      className={`${pillBase} ${active ? pillOn : pillOff} ${!active && count === 0 ? "cursor-not-allowed opacity-50" : ""}`}
                       type="button"
                     >
-                      {label}
+                      {label} <span className="ml-1 opacity-80">({count})</span>
                     </button>
                   );
                 })}
@@ -330,14 +425,16 @@ export default function NovoSimuladoClient() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {["R1", "R2", "R3"].map((n) => {
                   const active = selectedNiveis.includes(n);
+                  const count = nivelCounts[n] ?? 0;
                   return (
                     <button
                       key={n}
                       onClick={() => setSelectedNiveis((prev) => toggle(prev, n))}
-                      className={`${pillBase} ${active ? pillOn : pillOff}`}
+                      disabled={!active && count === 0}
+                      className={`${pillBase} ${active ? pillOn : pillOff} ${!active && count === 0 ? "cursor-not-allowed opacity-50" : ""}`}
                       type="button"
                     >
-                      {n}
+                      {n} <span className="ml-1 opacity-80">({count})</span>
                     </button>
                   );
                 })}
@@ -420,22 +517,28 @@ export default function NovoSimuladoClient() {
                       <div className="divide-y divide-slate-100 dark:divide-slate-800">
                         {filteredTemas.map((t) => {
                           const active = selectedTemas.includes(t);
+                          const count = temaCounts[t] ?? 0;
                           return (
                             <button
                               key={t}
                               type="button"
                               onClick={() => setSelectedTemas((prev) => toggle(prev, t))}
+                              disabled={!active && count === 0}
                               className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-slate-800 transition hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800"
                             >
-                              <span className="min-w-0 truncate">{t}</span>
+                              <span className="min-w-0 truncate">
+                                {t} <span className="opacity-70">({count})</span>
+                              </span>
                               <span
                                 className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-bold ${
                                   active
                                     ? "border-blue-500 bg-blue-500 text-white"
+                                    : count === 0
+                                    ? "border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
                                     : "border-slate-200 bg-white text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400"
                                 }`}
                               >
-                                {active ? "Selecionado" : "Selecionar"}
+                                {active ? "Selecionado" : count === 0 ? "Sem questões" : "Selecionar"}
                               </span>
                             </button>
                           );
@@ -475,12 +578,22 @@ export default function NovoSimuladoClient() {
             <div className="mt-6 flex justify-end">
               <Button
                 onClick={createSimulado}
-                disabled={creating}
+                disabled={!canCreate}
                 className={!creating ? "w-full sm:w-auto" : "w-full bg-slate-300 text-slate-700 shadow-none hover:bg-slate-300 sm:w-auto"}
                 type="button"
               >
                 {creating ? "Criando…" : "Criar simulado"}
               </Button>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm dark:border-slate-700 dark:bg-slate-800/50">
+              <div className="font-semibold text-slate-800 dark:text-slate-100">
+                Disponíveis com os filtros: {availableCount}
+              </div>
+              <div className="mt-1 text-slate-600 dark:text-slate-300">
+                Este simulado será criado com {effectiveQuestionCount} questão(ões).
+                {availableCount === 0 ? " Ajuste os filtros para continuar." : ""}
+              </div>
             </div>
 
             <div className="mt-2 text-xs text-slate-500 truncate dark:text-slate-400">{titleDisplay}</div>
