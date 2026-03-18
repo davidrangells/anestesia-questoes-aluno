@@ -102,24 +102,6 @@ function extractLevelTokens(q: QuestionBankDoc): string[] {
   );
 }
 
-function buildOptionMap(questions: QuestionBankDoc[]) {
-  const optionMap: Record<string, string[]> = {};
-
-  questions.forEach((question) => {
-    const optionIds = Array.isArray(question.options)
-      ? question.options
-          .map((option) => String(option?.id ?? "").trim())
-          .filter(Boolean)
-      : [];
-
-    if (optionIds.length > 1) {
-      optionMap[question.id] = shuffle(optionIds);
-    }
-  });
-
-  return optionMap;
-}
-
 export default function NovoSimuladoClient() {
   const router = useRouter();
   const user = auth.currentUser;
@@ -263,7 +245,6 @@ export default function NovoSimuladoClient() {
     try {
       const selectedQuestions = await pickQuestions();
       const questionIds = selectedQuestions.map((question) => question.id);
-      const optionMap = buildOptionMap(selectedQuestions);
 
       if (!questionIds.length) {
         alert("Nenhuma questão encontrada com esses filtros. Tente remover filtros.");
@@ -281,7 +262,6 @@ export default function NovoSimuladoClient() {
           temas: selectedTemas,
         },
         questionIds, // ✅ ids do questionsBank
-        optionMap,
         totalQuestions: questionIds.length,
         currentIndex: 0,
         answeredCount: 0,

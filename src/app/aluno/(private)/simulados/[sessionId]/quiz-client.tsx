@@ -94,20 +94,27 @@ function safeStr(v: unknown) {
   return String(v ?? "").trim();
 }
 
-function applyOptionOrder(
-  options: QuestionOption[] | undefined,
-  orderedIds: string[] | undefined
-) {
+function optionRank(id: unknown) {
+  const key = safeStr(id).toUpperCase();
+  if (key === "A") return 0;
+  if (key === "B") return 1;
+  if (key === "C") return 2;
+  if (key === "D") return 3;
+  if (key === "E") return 4;
+
+  const numeric = Number(key);
+  if (Number.isFinite(numeric)) return 100 + numeric;
+  return 999;
+}
+
+function sortOptionsById(options: QuestionOption[] | undefined) {
   if (!Array.isArray(options) || options.length <= 1) return options ?? [];
-  if (!Array.isArray(orderedIds) || !orderedIds.length) return options;
 
-  const byId = new Map(options.map((option) => [option.id, option] as const));
-  const ordered = orderedIds
-    .map((id) => byId.get(id))
-    .filter(Boolean) as QuestionOption[];
-
-  const remaining = options.filter((option) => !orderedIds.includes(option.id));
-  return [...ordered, ...remaining];
+  return [...options].sort((a, b) => {
+    const rankDiff = optionRank(a.id) - optionRank(b.id);
+    if (rankDiff !== 0) return rankDiff;
+    return safeStr(a.id).localeCompare(safeStr(b.id), "pt-BR", { sensitivity: "base" });
+  });
 }
 
 /**
@@ -319,7 +326,8 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
           return {
             ...question,
-            options: applyOptionOrder(question.options, sess.optionMap?.[qid]),
+            // Exibe sempre em ordem A, B, C, D, E (sem embaralhar na tela).
+            options: sortOptionsById(question.options),
           };
         })
         .filter(Boolean) as QuestionDoc[];
