@@ -594,7 +594,9 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       <Card>
         <CardHeader className="space-y-2">
           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Pergunta</div>
-          <div className="text-[15px] leading-7 text-slate-900 dark:text-slate-100">{statement}</div>
+          <div className="text-[15px] leading-7 whitespace-pre-line text-slate-900 dark:text-slate-100">
+            {statement}
+          </div>
         </CardHeader>
 
         <CardBody className="space-y-4">
