@@ -98,8 +98,7 @@ export default function ResultadoClient({ sessionId }: { sessionId: string }) {
       const allSessions = listSnap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<SessionDoc, "id">),
-      }))
-      .filter((item) => item.id !== "__active_session_lock__" && item.control !== true && item.kind !== "session_lock");
+      }));
 
       allSessions.sort((a, b) => toMillis(a.createdAt) - toMillis(b.createdAt));
       const index = allSessions.findIndex((item) => item.id === sessionId);

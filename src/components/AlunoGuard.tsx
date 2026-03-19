@@ -208,7 +208,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         let lockSoftBypass = false;
 
         try {
-          const claimOk = await runTransaction(db, async (tx) => {
+          await runTransaction(db, async (tx) => {
             tx.set(
               userRef,
               {
@@ -222,14 +222,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
               },
               { merge: true }
             );
-            return true;
           });
-
-          if (!claimOk) {
-            await auth.signOut();
-            router.replace("/aluno/entrar?erro=sessao_ativa");
-            return;
-          }
           lockConfirmed = true;
         } catch (error) {
           const code = (error as { code?: string })?.code ?? "";

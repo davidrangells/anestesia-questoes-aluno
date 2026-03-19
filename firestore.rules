@@ -13,19 +13,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
-      // Simulados do aluno + doc tecnico de lock
+      // Simulados do aluno
       match /sessions/{sessionId} {
-        allow read: if isOwner(uid);
-
-        // Regras especiais para o lock de sessao simultanea
-        allow create, update: if isOwner(uid)
-          && sessionId == "__active_session_lock__"
-          && request.resource.data.sessionId is string
-          && request.resource.data.sessionId.size() > 0;
-
-        // Simulados normais (nao lock)
-        allow create, update, delete: if isOwner(uid)
-          && sessionId != "__active_session_lock__";
+        allow read, create, update, delete: if isOwner(uid);
       }
     }
 
