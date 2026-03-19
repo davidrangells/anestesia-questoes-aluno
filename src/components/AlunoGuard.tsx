@@ -79,7 +79,6 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
   const sessionCheckRef = useRef<number | null>(null);
   const activeSessionUnsubRef = useRef<(() => void) | null>(null);
   const signingOutBySessionRef = useRef(false);
-  const sessionCheckErrorsRef = useRef(0);
 
   const clearSessionSync = useCallback(() => {
     if (heartbeatRef.current != null) {
@@ -109,24 +108,20 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
     const verifyOwnership = () => {
       void getDocFromServer(activeSessionRef)
         .then((snap) => {
-          sessionCheckErrorsRef.current = 0;
           const data = snap.data() as { sessionId?: unknown } | undefined;
           const remoteSessionId = String(data?.sessionId ?? "").trim();
           if (!remoteSessionId || remoteSessionId === clientSessionId) return;
           forceSessionLogout();
         })
         .catch(() => {
-          sessionCheckErrorsRef.current += 1;
-          if (sessionCheckErrorsRef.current >= 3) {
-            forceSessionLogout();
-          }
+          // Falha de leitura nao deve derrubar sessao valida.
+          // O logout acontece apenas quando outro sessionId e confirmado.
         });
     };
 
     activeSessionUnsubRef.current = onSnapshot(
       activeSessionRef,
       (snap) => {
-        sessionCheckErrorsRef.current = 0;
         const data = snap.data() as { sessionId?: unknown } | undefined;
         const remoteSessionId = String(data?.sessionId ?? "").trim();
         if (!remoteSessionId || remoteSessionId === clientSessionId) return;
