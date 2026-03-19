@@ -185,7 +185,7 @@ export default function SimuladosPageClient() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-x-hidden">
       {/* Header */}
       <Card>
         <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -203,11 +203,11 @@ export default function SimuladosPageClient() {
             </div>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => router.push("/aluno/simulados/novo")}>
+          <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-wrap">
+            <Button className="w-full sm:w-auto" onClick={() => router.push("/aluno/simulados/novo")}>
               Novo simulado
             </Button>
-            <Button variant="secondary" onClick={load} disabled={loading}>
+            <Button className="w-full sm:w-auto" variant="secondary" onClick={load} disabled={loading}>
               {loading ? "Atualizando…" : "Atualizar"}
             </Button>
           </div>
@@ -282,10 +282,10 @@ export default function SimuladosPageClient() {
             total > 0 ? Math.min(100, Math.round((answered / total) * 100)) : 0;
 
           return (
-            <Card key={s.id}>
+            <Card key={s.id} className="overflow-hidden">
               {/* ✅ padding maior no mobile + alinhamento pra não “encostar” na borda */}
               <CardBody className="p-6 sm:p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   {/* Left */}
                   <div className="min-w-0 w-full">
                     {/* ✅ titulo + badge com “respiro” */}
@@ -314,16 +314,16 @@ export default function SimuladosPageClient() {
                     </div>
 
                     <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <span className="max-w-full truncate rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Atualizado: <b>{formatDate(s.updatedAt)}</b>
                       </span>
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <span className="max-w-full truncate rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Progresso: <b>{answered}/{total || "—"}</b>
                       </span>
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <span className="max-w-full truncate rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Acertos: <b>{correct}</b>
                       </span>
-                      <span className="rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
+                      <span className="max-w-full truncate rounded-full border bg-white px-3 py-1 text-slate-700 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200">
                         Nota: <b>{percent}%</b>
                       </span>
                     </div>
@@ -337,18 +337,18 @@ export default function SimuladosPageClient() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
+                  <div className="grid w-full grid-cols-1 gap-2 sm:flex sm:w-auto sm:flex-row sm:flex-wrap sm:justify-end">
                     {!isCompleted ? (
-                      <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
+                      <Button className="w-full !justify-center sm:w-auto" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
                         Retomar
                       </Button>
                     ) : (
-                      <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
+                      <Button className="w-full !justify-center sm:w-auto" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
                         Resultado
                       </Button>
                     )}
 
-                    <Button className="w-full sm:w-auto" variant="secondary" onClick={() => onDelete(s.id)}>
+                    <Button className="w-full !justify-center sm:w-auto" variant="secondary" onClick={() => onDelete(s.id)}>
                       Excluir
                     </Button>
                   </div>
