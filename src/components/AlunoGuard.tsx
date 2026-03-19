@@ -268,10 +268,10 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           }
         }
 
+        // Se nao for possivel confirmar lock no servidor, nao bloqueia login.
+        // Mantemos monitor/heartbeat para derrubar sessoes antigas quando o lock estiver disponivel.
         if (!lockConfirmed && !lockSoftBypass) {
-          await auth.signOut();
-          router.replace("/aluno/entrar?erro=verificacao");
-          return;
+          console.warn("Sessao sem lock confirmado: seguindo em modo degradado.");
         }
 
         attachSessionMonitor(fallbackSessionRef, clientSessionId);
