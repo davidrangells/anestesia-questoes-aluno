@@ -68,7 +68,10 @@ function getClientSessionId(uid: string) {
   return generated;
 }
 
-const FALLBACK_LOCK_DOC_ID = "__active_session_lock__";
+type ActiveSessionData = {
+  sessionId?: unknown;
+  lastSeenAt?: unknown;
+};
 
 export default function AlunoGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -104,12 +107,12 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
     });
   }, [clearSessionSync, router]);
 
-  const attachSessionMonitor = useCallback((activeSessionRef: ReturnType<typeof doc>, clientSessionId: string) => {
+  const attachSessionMonitor = useCallback((userRef: ReturnType<typeof doc>, clientSessionId: string) => {
     const verifyOwnership = () => {
-      void getDocFromServer(activeSessionRef)
+      void getDocFromServer(userRef)
         .then((snap) => {
-          const data = snap.data() as { sessionId?: unknown } | undefined;
-          const remoteSessionId = String(data?.sessionId ?? "").trim();
+          const data = snap.data() as { activeSession?: ActiveSessionData } | undefined;
+          const remoteSessionId = String(data?.activeSession?.sessionId ?? "").trim();
           if (!remoteSessionId || remoteSessionId === clientSessionId) return;
           forceSessionLogout();
         })
@@ -120,10 +123,10 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
     };
 
     activeSessionUnsubRef.current = onSnapshot(
-      activeSessionRef,
+      userRef,
       (snap) => {
-        const data = snap.data() as { sessionId?: unknown } | undefined;
-        const remoteSessionId = String(data?.sessionId ?? "").trim();
+        const data = snap.data() as { activeSession?: ActiveSessionData } | undefined;
+        const remoteSessionId = String(data?.activeSession?.sessionId ?? "").trim();
         if (!remoteSessionId || remoteSessionId === clientSessionId) return;
         forceSessionLogout();
       },
@@ -199,7 +202,7 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           return;
         }
 
-        const fallbackSessionRef = doc(db, "users", user.uid, "sessions", FALLBACK_LOCK_DOC_ID);
+        const userRef = doc(db, "users", user.uid);
         const clientSessionId = getClientSessionId(user.uid);
         let lockConfirmed = false;
         let lockSoftBypass = false;
@@ -207,15 +210,14 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         try {
           const claimOk = await runTransaction(db, async (tx) => {
             tx.set(
-              fallbackSessionRef,
+              userRef,
               {
-                control: true,
-                kind: "session_lock",
-                uid: user.uid,
-                sessionId: clientSessionId,
-                device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
-                claimedAt: serverTimestamp(),
-                lastSeenAt: serverTimestamp(),
+                activeSession: {
+                  sessionId: clientSessionId,
+                  device: typeof navigator !== "undefined" ? navigator.userAgent.slice(0, 180) : "unknown",
+                  claimedAt: serverTimestamp(),
+                  lastSeenAt: serverTimestamp(),
+                },
                 updatedAt: serverTimestamp(),
               },
               { merge: true }
@@ -239,10 +241,10 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
 
         if (!lockConfirmed) {
           try {
-            const lockSnap = await getDocFromServer(fallbackSessionRef);
-            const lockData = lockSnap.data() as { sessionId?: unknown; lastSeenAt?: unknown } | undefined;
-            const remoteSessionId = String(lockData?.sessionId ?? "").trim();
-            const remoteLastSeenMs = toDate(lockData?.lastSeenAt)?.getTime() ?? 0;
+            const lockSnap = await getDocFromServer(userRef);
+            const lockData = lockSnap.data() as { activeSession?: ActiveSessionData } | undefined;
+            const remoteSessionId = String(lockData?.activeSession?.sessionId ?? "").trim();
+            const remoteLastSeenMs = toDate(lockData?.activeSession?.lastSeenAt)?.getTime() ?? 0;
             const lockAlive = remoteLastSeenMs > 0 && Date.now() - remoteLastSeenMs < 20_000;
 
             if (remoteSessionId && remoteSessionId !== clientSessionId && lockAlive) {
@@ -269,13 +271,13 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
           console.warn("Sessao sem lock confirmado: seguindo em modo degradado.");
         }
 
-        attachSessionMonitor(fallbackSessionRef, clientSessionId);
+        attachSessionMonitor(userRef, clientSessionId);
 
         heartbeatRef.current = window.setInterval(() => {
           void runTransaction(db, async (tx) => {
-            const snap = await tx.get(fallbackSessionRef);
-            const data = snap.data() as { sessionId?: unknown } | undefined;
-            const currentSessionId = String(data?.sessionId ?? "").trim();
+            const snap = await tx.get(userRef);
+            const data = snap.data() as { activeSession?: ActiveSessionData } | undefined;
+            const currentSessionId = String(data?.activeSession?.sessionId ?? "").trim();
 
             // Se perdeu o lock para outro dispositivo, nao tenta sobrescrever.
             if (currentSessionId && currentSessionId !== clientSessionId) {
@@ -283,10 +285,12 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
             }
 
             tx.set(
-              fallbackSessionRef,
+              userRef,
               {
-                sessionId: clientSessionId,
-                lastSeenAt: serverTimestamp(),
+                activeSession: {
+                  sessionId: clientSessionId,
+                  lastSeenAt: serverTimestamp(),
+                },
                 updatedAt: serverTimestamp(),
               },
               { merge: true }
