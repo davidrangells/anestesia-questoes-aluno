@@ -91,6 +91,98 @@ function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function escapeHtml(raw: string) {
+  return raw
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+const ALLOWED_RICH_TAGS = new Set([
+  "p",
+  "br",
+  "strong",
+  "b",
+  "em",
+  "i",
+  "u",
+  "s",
+  "span",
+  "ul",
+  "ol",
+  "li",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "blockquote",
+  "code",
+  "pre",
+  "a",
+]);
+
+function sanitizeRichText(raw: string) {
+  const input = String(raw || "");
+  if (!input) return "";
+
+  if (typeof window === "undefined") {
+    return escapeHtml(input).replaceAll("\n", "<br />");
+  }
+
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(input, "text/html");
+
+  doc.querySelectorAll("script,style,iframe,object,embed,link,meta").forEach((node) => node.remove());
+
+  const elements = Array.from(doc.body.querySelectorAll("*"));
+  elements.forEach((el) => {
+    const tag = el.tagName.toLowerCase();
+
+    if (!ALLOWED_RICH_TAGS.has(tag)) {
+      const fragment = doc.createDocumentFragment();
+      while (el.firstChild) fragment.appendChild(el.firstChild);
+      el.replaceWith(fragment);
+      return;
+    }
+
+    const attrs = Array.from(el.attributes);
+    attrs.forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value;
+
+      if (name.startsWith("on") || name === "style") {
+        el.removeAttribute(attr.name);
+        return;
+      }
+
+      if (tag === "a" && name === "href") {
+        const href = value.trim().toLowerCase();
+        const isSafeHref =
+          href.startsWith("http://") ||
+          href.startsWith("https://") ||
+          href.startsWith("mailto:") ||
+          href.startsWith("tel:");
+        if (!isSafeHref) {
+          el.removeAttribute("href");
+        } else {
+          el.setAttribute("target", "_blank");
+          el.setAttribute("rel", "noopener noreferrer");
+        }
+        return;
+      }
+
+      if (tag === "a" && (name === "target" || name === "rel")) return;
+      if (name !== "href") el.removeAttribute(attr.name);
+    });
+  });
+
+  return doc.body.innerHTML;
+}
+
 function safeStr(v: unknown) {
   return String(v ?? "").trim();
 }
@@ -258,6 +350,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       "Pergunta não encontrada"
     );
   }, [currentQuestion]);
+  const statementHtml = useMemo(() => sanitizeRichText(safeStr(statement)), [statement]);
 
   const correctId = useMemo(() => {
     return (
@@ -281,6 +374,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     // se vier "Resposta: X Comentário: Y", mantém tudo
     return s;
   }, [currentQuestion]);
+  const explanationHtml = useMemo(() => sanitizeRichText(explanationText), [explanationText]);
 
   const referenceText = useMemo(() => {
     const raw =
@@ -292,6 +386,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       "";
     return safeStr(raw);
   }, [currentQuestion]);
+  const referenceHtml = useMemo(() => sanitizeRichText(referenceText), [referenceText]);
 
   const load = useCallback(async () => {
     const u = auth.currentUser;
@@ -625,9 +720,10 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       <Card>
         <CardHeader className="space-y-2">
           <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Pergunta</div>
-          <div className="text-[15px] leading-7 whitespace-pre-line text-slate-900 dark:text-slate-100">
-            {statement}
-          </div>
+          <div
+            className="text-[15px] leading-7 text-slate-900 dark:text-slate-100 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
+            dangerouslySetInnerHTML={{ __html: statementHtml }}
+          />
         </CardHeader>
 
         <CardBody className="space-y-4">
@@ -671,9 +767,10 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                   </div>
 
                   <div className="min-w-0">
-                    <div className="text-[14px] leading-6 text-slate-900 dark:text-slate-100">
-                      {opt.text ?? ""}
-                    </div>
+                    <div
+                      className="text-[14px] leading-6 text-slate-900 dark:text-slate-100 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
+                      dangerouslySetInnerHTML={{ __html: sanitizeRichText(safeStr(opt.text)) }}
+                    />
                   </div>
                 </div>
               </button>
@@ -723,18 +820,20 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
               {explanationText ? (
                 <div className="rounded-2xl border bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
                   <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Comentário</div>
-                  <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap dark:text-slate-300">
-                    {explanationText}
-                  </div>
+                  <div
+                    className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-bold [&_u]:underline"
+                    dangerouslySetInnerHTML={{ __html: explanationHtml }}
+                  />
                 </div>
               ) : null}
 
               {referenceText ? (
                 <div className="rounded-2xl border bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
                   <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Referência</div>
-                  <div className="mt-1 text-sm leading-6 text-slate-700 whitespace-pre-wrap break-words dark:text-slate-300">
-                    {referenceText}
-                  </div>
+                  <div
+                    className="mt-1 text-sm leading-6 text-slate-700 break-words dark:text-slate-300 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-bold [&_u]:underline"
+                    dangerouslySetInnerHTML={{ __html: referenceHtml }}
+                  />
                 </div>
               ) : null}
 
