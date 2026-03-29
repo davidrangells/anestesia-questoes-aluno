@@ -97,7 +97,7 @@ export default function AlunoSidebar({
                 alt="Logo Anestesia Questões"
                 width={48}
                 height={48}
-                className="h-[92%] w-[92%] object-contain"
+                className="h-[96%] w-[96%] object-contain"
                 onError={() => setLogoError(true)}
               />
             ) : (
