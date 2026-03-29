@@ -93,7 +93,7 @@ export default function AlunoSidebar({
           <div className="h-12 w-12 rounded-2xl overflow-hidden bg-slate-900 text-white flex items-center justify-center font-black dark:border dark:border-slate-700/80 dark:bg-[#061738] dark:text-blue-300">
             {!logoError ? (
               <Image
-                src="/logo.png?v=2"
+                src="/logo.png"
                 alt="Logo Anestesia Questões"
                 width={48}
                 height={48}
