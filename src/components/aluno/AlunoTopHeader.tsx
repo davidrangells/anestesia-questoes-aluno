@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 function getBreadcrumb(pathname: string | null) {
   if (!pathname) return "Início";
@@ -26,19 +27,54 @@ export default function AlunoTopHeader({
   const pathname = usePathname();
 
   const [user, setUser] = useState<User | null>(auth.currentUser);
+  const [profileName, setProfileName] = useState("");
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
     return () => unsub();
   }, []);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadProfileName() {
+      if (!user?.uid) {
+        if (active) setProfileName("");
+        return;
+      }
+
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        const rawName = snap.exists() ? snap.data()?.name : "";
+        if (active) setProfileName(String(rawName ?? "").trim());
+      } catch {
+        if (active) setProfileName("");
+      }
+    }
+
+    void loadProfileName();
+    return () => {
+      active = false;
+    };
+  }, [user?.uid]);
+
   const breadcrumb = useMemo(() => getBreadcrumb(pathname), [pathname]);
 
+  const displayName = useMemo(() => {
+    const fromProfile = profileName.trim();
+    if (fromProfile) return fromProfile;
+    const fromAuth = String(user?.displayName ?? "").trim();
+    if (fromAuth) return fromAuth;
+    return String(user?.email ?? "").trim();
+  }, [profileName, user?.displayName, user?.email]);
+
   const initials = useMemo(() => {
-    const email = user?.email ?? "";
-    const base = email.trim().slice(0, 2).toUpperCase();
-    return base || "AQ";
-  }, [user]);
+    const base = displayName.trim();
+    if (!base) return "AQ";
+    const parts = base.split(/\s+/).filter(Boolean);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0].slice(0, 1) + parts[1].slice(0, 1)).toUpperCase();
+  }, [displayName]);
 
   return (
     <header className="sticky top-0 z-30 overflow-hidden border-b border-slate-200/70 bg-white/85 backdrop-blur dark:border-slate-800/80 dark:bg-[#050f2c]/95">
@@ -68,7 +104,7 @@ export default function AlunoTopHeader({
         {/* Right */}
         <div className="flex min-w-0 shrink-0 items-center gap-3">
           <div className="hidden sm:block text-sm text-slate-600 truncate max-w-[220px] dark:text-slate-300">
-            {user?.email ?? ""}
+            {displayName}
           </div>
 
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white shadow-lg sm:h-10 sm:w-10 dark:border dark:border-slate-700 dark:bg-slate-100 dark:text-slate-900">

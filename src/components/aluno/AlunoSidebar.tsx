@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { useAlunoTheme } from "@/components/aluno/AlunoThemeProvider";
@@ -66,6 +68,7 @@ export default function AlunoSidebar({
 }) {
   const router = useRouter();
   const { theme, setTheme } = useAlunoTheme();
+  const [logoError, setLogoError] = useState(false);
 
   const logout = async () => {
     await signOut(auth);
@@ -87,8 +90,19 @@ export default function AlunoSidebar({
       {/* Brand */}
       <div className="px-5 py-5 border-b border-slate-200 dark:border-slate-800/80">
         <div className="flex items-center gap-3">
-          <div className="h-12 w-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black dark:border dark:border-slate-700/80 dark:bg-[#061738] dark:text-blue-300">
-            AQ
+          <div className="h-12 w-12 rounded-2xl overflow-hidden bg-slate-900 text-white flex items-center justify-center font-black dark:border dark:border-slate-700/80 dark:bg-[#061738] dark:text-blue-300">
+            {!logoError ? (
+              <Image
+                src="/favicon.ico"
+                alt="Logo Anestesia Questões"
+                width={48}
+                height={48}
+                className="h-full w-full object-cover"
+                onError={() => setLogoError(true)}
+              />
+            ) : (
+              "AQ"
+            )}
           </div>
           <div className="min-w-0">
             <div className="text-lg font-black text-slate-900 truncate dark:text-slate-100">
