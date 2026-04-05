@@ -837,19 +837,47 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                 </div>
               ) : null}
 
-              {/* ✅ reportar erro */}
-              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <Button
-                  className="w-full sm:w-auto"
-                  variant="secondary"
-                  onClick={() => {
-                    setReportNotice(null);
-                    setReportOpen((v) => !v);
-                  }}
-                >
-                  Reportar erro
-                </Button>
-              </div>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="grid grid-cols-2 gap-3 pt-4">
+            <Button className="w-full" variant="secondary" onClick={onPrev} disabled={isFirst}>
+              ← Anterior
+            </Button>
+
+            {canFinalize ? (
+              <Button className="w-full" onClick={onFinish} disabled={finalizeDisabled}>
+                {isFinishing ? "Finalizando…" : "Finalizar →"}
+              </Button>
+            ) : isReviewMode && isLast ? (
+              <Button className="w-full" onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}>
+                Voltar ao resultado
+              </Button>
+            ) : (
+              <Button
+                className="w-full"
+                variant="secondary"
+                onClick={onNext}
+                disabled={isReviewMode ? isLast : !confirmed || isLast}
+              >
+                Próxima →
+              </Button>
+            )}
+          </div>
+
+          {showResultPanel ? (
+            <div className="pt-3 space-y-3">
+              <Button
+                className="w-full"
+                variant="secondary"
+                onClick={() => {
+                  setReportNotice(null);
+                  setReportOpen((v) => !v);
+                }}
+              >
+                Reportar erro
+              </Button>
 
               {reportNotice ? (
                 <div
@@ -890,33 +918,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                 </div>
               ) : null}
             </div>
-          )}
-
-          {/* Footer */}
-          <div className="flex flex-col gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <Button className="w-full sm:w-auto" variant="secondary" onClick={onPrev} disabled={isFirst}>
-              ← Anterior
-            </Button>
-
-            {canFinalize ? (
-              <Button className="w-full sm:w-auto" onClick={onFinish} disabled={finalizeDisabled}>
-                {isFinishing ? "Finalizando…" : "Finalizar →"}
-              </Button>
-            ) : isReviewMode && isLast ? (
-              <Button className="w-full sm:w-auto" onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}>
-                Voltar ao resultado
-              </Button>
-            ) : (
-              <Button
-                className="w-full sm:w-auto"
-                variant="secondary"
-                onClick={onNext}
-                disabled={isReviewMode ? isLast : !confirmed || isLast}
-              >
-                Próxima →
-              </Button>
-            )}
-          </div>
+          ) : null}
 
           {showResultPanel ? (
             <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
