@@ -868,16 +868,19 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
           {showResultPanel ? (
             <div className="pt-3 space-y-3">
-              <Button
-                className="w-full"
-                variant="secondary"
-                onClick={() => {
-                  setReportNotice(null);
-                  setReportOpen((v) => !v);
-                }}
-              >
-                Reportar erro
-              </Button>
+              <div className="flex justify-start">
+                <Button
+                  size="sm"
+                  className="w-auto px-4"
+                  variant="secondary"
+                  onClick={() => {
+                    setReportNotice(null);
+                    setReportOpen((v) => !v);
+                  }}
+                >
+                  Reportar erro
+                </Button>
+              </div>
 
               {reportNotice ? (
                 <div
