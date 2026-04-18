@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { Menu } from "lucide-react";
+import { usePageHeader } from "@/components/aluno/AlunoPageHeaderContext";
 
 function getBreadcrumb(pathname: string | null) {
   if (!pathname) return "Início";
@@ -59,6 +61,10 @@ export default function AlunoTopHeader({
   }, [user?.uid]);
 
   const breadcrumb = useMemo(() => getBreadcrumb(pathname), [pathname]);
+  const { title: pageTitle, subtitle: pageSubtitle } = usePageHeader();
+
+  const headerTitle = pageTitle || breadcrumb;
+  const headerSubtitle = pageSubtitle || "Área do Aluno";
 
   const displayName = useMemo(() => {
     const fromProfile = profileName.trim();
@@ -85,18 +91,18 @@ export default function AlunoTopHeader({
           <button
             type="button"
             onClick={onMenuClick}
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-lg text-slate-700 shadow-sm lg:hidden dark:border-slate-700 dark:bg-[#061738] dark:text-slate-100"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 shadow-sm lg:hidden dark:border-slate-700 dark:bg-[#061738] dark:text-slate-300"
             aria-label="Abrir menu"
           >
-            ☰
+            <Menu size={18} />
           </button>
 
           <div className="min-w-0">
             <div className="text-xs text-slate-500 font-semibold dark:text-slate-400">
-              Área do Aluno
+              {headerSubtitle}
             </div>
             <div className="text-lg font-black text-slate-900 truncate dark:text-slate-100">
-              {breadcrumb}
+              {headerTitle}
             </div>
           </div>
         </div>

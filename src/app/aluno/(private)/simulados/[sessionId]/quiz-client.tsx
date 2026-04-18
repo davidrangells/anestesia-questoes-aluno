@@ -15,6 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { usePageHeader } from "@/components/aluno/AlunoPageHeaderContext";
 
 type SessionDoc = {
   id: string;
@@ -291,6 +292,7 @@ async function getQuestionById(questionIdInput: string): Promise<QuestionDoc> {
 
 export default function QuizClient({ sessionId }: { sessionId: string }) {
   const router = useRouter();
+  const { setHeader, clearHeader } = usePageHeader();
 
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -332,6 +334,22 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   }, [currentIndex, totalFromSession, questions.length]);
 
   const currentQuestion = useMemo(() => questions[currentIndex] ?? null, [questions, currentIndex]);
+
+  // Atualiza header com título e progresso do simulado
+  useEffect(() => {
+    if (!session) return;
+    const total = totalFromSession || questions.length || 0;
+    const sessionTitle = session.titleDisplay || session.title || "Simulado";
+    const modeLabel = isReviewMode ? "Revisão" : "Questão";
+    setHeader({
+      title: sessionTitle,
+      subtitle: total > 0 ? `${modeLabel} ${currentIndex + 1} de ${total}` : modeLabel,
+    });
+  }, [session, currentIndex, totalFromSession, questions.length, isReviewMode, setHeader]);
+
+  useEffect(() => {
+    return () => clearHeader();
+  }, [clearHeader]);
   const currentSavedAnswer = useMemo(() => {
     if (!session || !currentQuestion) return null;
     const saved = session.answersMap?.[currentQuestion.id];
