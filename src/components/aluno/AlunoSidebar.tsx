@@ -10,7 +10,6 @@ import { useAlunoTheme } from "@/components/aluno/AlunoThemeProvider";
 import {
   Home,
   Brain,
-  FileText,
   CreditCard,
   User,
   LogOut,
@@ -141,7 +140,6 @@ export default function AlunoSidebar({
         </div>
         <Item href="/aluno" label="Início" Icon={Home} onNavigate={onNavigate} />
         <Item href="/aluno/simulados" label="Simulados" Icon={Brain} onNavigate={onNavigate} />
-        <Item href="/aluno/provas" label="Provas" Icon={FileText} onNavigate={onNavigate} disabled />
         <Item href="/aluno/assinatura" label="Assinatura" Icon={CreditCard} onNavigate={onNavigate} />
         <Item href="/aluno/perfil" label="Perfil" Icon={User} onNavigate={onNavigate} />
       </nav>

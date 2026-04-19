@@ -244,6 +244,7 @@ export default function DashboardClient() {
   const [err, setErr] = useState("");
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
   const [themePerformance, setThemePerformance] = useState<ThemePerformance[]>([]);
+  const [firestoreName, setFirestoreName] = useState("");
 
   async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
@@ -260,7 +261,17 @@ export default function DashboardClient() {
       const ref = collection(db, "users", u.uid, "sessions");
       const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
-      const snap = await getDocs(qy);
+      const [snap, userSnap] = await Promise.all([
+        getDocs(qy),
+        getDoc(doc(db, "users", u.uid)),
+      ]);
+
+      if (userSnap.exists()) {
+        const userData = userSnap.data() as { name?: string };
+        const rawName = (userData.name || "").trim();
+        if (rawName) setFirestoreName(rawName.split(" ")[0]);
+      }
+
       const items: SessionDoc[] = snap.docs.map((docSnap) => ({
         id: docSnap.id,
         ...(docSnap.data() as Omit<SessionDoc, "id">),
@@ -471,7 +482,10 @@ export default function DashboardClient() {
   // Saudação por horário
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
-  const firstName = (auth.currentUser?.displayName || "").split(" ")[0] || "Aluno";
+  const firstName =
+    firestoreName ||
+    (auth.currentUser?.displayName || "").trim().split(" ")[0] ||
+    "";
   const todayLabel = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
   // Trend icon
@@ -494,7 +508,7 @@ export default function DashboardClient() {
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500 capitalize">{todayLabel}</div>
           <div className="mt-0.5 text-2xl font-black text-slate-900 dark:text-slate-100">
-            {greeting}, {firstName}! 👋
+            {firstName ? `${greeting}, ${firstName}! 👋` : `${greeting}! 👋`}
           </div>
           <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{lastStudyLabel}</div>
         </div>
@@ -690,11 +704,11 @@ export default function DashboardClient() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <svg viewBox="0 0 520 190" className="h-48 min-w-[400px] w-full">
+              <svg viewBox="0 0 520 210" className="h-52 min-w-[400px] w-full">
                 <defs>
                   <linearGradient id="aqAreaGrad" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
-                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity="0.01" />
                   </linearGradient>
                   <linearGradient id="aqLineGrad" x1="0" x2="1" y1="0" y2="0">
                     <stop offset="0%" stopColor="#6366f1" />
@@ -702,18 +716,33 @@ export default function DashboardClient() {
                   </linearGradient>
                 </defs>
 
-                {/* Grid lines com labels */}
+                {/* Grid lines */}
                 {[0, 25, 50, 75, 100].map((tick) => {
-                  const y = 14 + (100 - tick) * 1.4;
+                  const y = 20 + (100 - tick) * 1.5;
                   return (
                     <g key={tick}>
-                      <line x1="36" x2="508" y1={y} y2={y} stroke="currentColor"
-                        className="text-slate-200 dark:text-slate-700/60" strokeDasharray="3 4" />
-                      <text x="30" y={y + 4} textAnchor="end" fontSize="10"
+                      <line x1="38" x2="510" y1={y} y2={y} stroke="currentColor"
+                        className="text-slate-200 dark:text-slate-700/60"
+                        strokeDasharray={tick === 70 ? "0" : "3 4"}
+                        strokeWidth={tick === 70 ? 0 : 1} />
+                      <text x="32" y={y + 4} textAnchor="end" fontSize="10"
                         className="fill-slate-400 dark:fill-slate-600">{tick}%</text>
                     </g>
                   );
                 })}
+
+                {/* Linha de meta 70% */}
+                {(() => {
+                  const goalY = 20 + (100 - 70) * 1.5;
+                  return (
+                    <g>
+                      <line x1="38" x2="510" y1={goalY} y2={goalY}
+                        stroke="#22c55e" strokeWidth="1.5" strokeDasharray="6 4" opacity="0.7" />
+                      <text x="512" y={goalY + 4} textAnchor="start" fontSize="9" fontWeight="700"
+                        fill="#22c55e" opacity="0.8">Meta</text>
+                    </g>
+                  );
+                })()}
 
                 {/* Área preenchida */}
                 <path
@@ -721,12 +750,12 @@ export default function DashboardClient() {
                   d={[
                     performanceSeries.map((item, i) => {
                       const step = performanceSeries.length > 1 ? 472 / (performanceSeries.length - 1) : 0;
-                      const x = 36 + i * step;
-                      const y = 14 + (100 - item.value) * 1.4;
+                      const x = 38 + i * step;
+                      const y = 20 + (100 - item.value) * 1.5;
                       return i === 0 ? `M ${x},${y}` : `L ${x},${y}`;
                     }).join(" "),
-                    `L ${36 + (performanceSeries.length - 1) * (472 / Math.max(1, performanceSeries.length - 1))},154`,
-                    `L 36,154 Z`
+                    `L ${38 + (performanceSeries.length - 1) * (472 / Math.max(1, performanceSeries.length - 1))},170`,
+                    `L 38,170 Z`
                   ].join(" ")}
                 />
 
@@ -739,8 +768,8 @@ export default function DashboardClient() {
                   strokeLinejoin="round"
                   points={performanceSeries.map((item, i) => {
                     const step = performanceSeries.length > 1 ? 472 / (performanceSeries.length - 1) : 0;
-                    const x = 36 + i * step;
-                    const y = 14 + (100 - item.value) * 1.4;
+                    const x = 38 + i * step;
+                    const y = 20 + (100 - item.value) * 1.5;
                     return `${x},${y}`;
                   }).join(" ")}
                 />
@@ -748,18 +777,24 @@ export default function DashboardClient() {
                 {/* Pontos + labels */}
                 {performanceSeries.map((item, i) => {
                   const step = performanceSeries.length > 1 ? 472 / (performanceSeries.length - 1) : 0;
-                  const x = 36 + i * step;
-                  const y = 14 + (100 - item.value) * 1.4;
+                  const x = 38 + i * step;
+                  const y = 20 + (100 - item.value) * 1.5;
                   const isLast = i === performanceSeries.length - 1;
+                  const dotColor = item.value >= 70 ? "#22c55e" : item.value >= 50 ? "#f59e0b" : "#ef4444";
+                  const labelColor = item.value >= 70 ? "#16a34a" : item.value >= 50 ? "#d97706" : "#dc2626";
+                  // Stagger labels: even above, odd below (to avoid overlap on dense charts)
+                  const labelOffset = performanceSeries.length > 4 ? (i % 2 === 0 ? -11 : 18) : -11;
                   return (
                     <g key={item.id}>
-                      <circle cx={x} cy={y} r={isLast ? 5.5 : 4} fill={isLast ? "#3b82f6" : "#6366f1"}
-                        stroke="white" strokeWidth="2" className="dark:stroke-slate-900" />
                       {isLast && (
-                        <text x={x} y={y - 10} textAnchor="middle" fontSize="10" fontWeight="700"
-                          className="fill-blue-600 dark:fill-blue-400">{Math.round(item.value)}%</text>
+                        <circle cx={x} cy={y} r={9} fill={dotColor} opacity="0.18" />
                       )}
-                      <text x={x} y="178" textAnchor="middle" fontSize="10"
+                      <circle cx={x} cy={y} r={isLast ? 5.5 : 4.5}
+                        fill={dotColor} stroke="white" strokeWidth="2"
+                        className="dark:stroke-slate-900" />
+                      <text x={x} y={y + labelOffset} textAnchor="middle" fontSize="9.5" fontWeight="700"
+                        fill={labelColor}>{Math.round(item.value)}%</text>
+                      <text x={x} y="194" textAnchor="middle" fontSize="10"
                         className="fill-slate-400 dark:fill-slate-500">{item.label}</text>
                     </g>
                   );
