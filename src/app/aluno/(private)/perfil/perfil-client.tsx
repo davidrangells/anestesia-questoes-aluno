@@ -2,10 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { KeyRound, Mail, User, Phone, MapPin, Save, X, Pencil } from "lucide-react";
 
 function cn(...xs: Array<string | false | undefined | null>) {
   return xs.filter(Boolean).join(" ");
@@ -14,7 +18,6 @@ function cn(...xs: Array<string | false | undefined | null>) {
 type ProfileData = {
   name?: string;
   phone?: string;
-
   addressStreet?: string;
   addressNumber?: string;
   addressComplement?: string;
@@ -22,12 +25,8 @@ type ProfileData = {
   addressCity?: string;
   addressState?: string;
   addressZip?: string;
-
-  // metadados
   updatedAt?: unknown;
   createdAt?: unknown;
-
-  // opcional: origem
   source?: "eduzz" | "user";
   eduzzCustomerId?: string;
 };
@@ -36,12 +35,13 @@ function initials(nameOrEmail: string) {
   const s = (nameOrEmail || "").trim();
   if (!s) return "AQ";
   const parts = s.split(/\s+/).filter(Boolean);
-  if (parts.length === 1) return parts[0].slice(0, 1).toUpperCase();
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0].slice(0, 1) + parts[1].slice(0, 1)).toUpperCase();
 }
 
 function Field({
   label,
+  icon: Icon,
   value,
   onChange,
   placeholder,
@@ -49,6 +49,7 @@ function Field({
   half,
 }: {
   label: string;
+  icon?: React.ElementType;
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
@@ -57,33 +58,57 @@ function Field({
 }) {
   return (
     <div className={cn(half ? "sm:col-span-6" : "sm:col-span-12")}>
-      <label className="block text-sm font-semibold text-slate-800 dark:text-slate-200">{label}</label>
+      <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        {Icon && <Icon size={12} />}
+        {label}
+      </label>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="ui-input mt-2"
+        className="ui-input"
       />
+    </div>
+  );
+}
+
+function SkeletonPerfil() {
+  return (
+    <div className="space-y-6">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/50">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-16 w-16 rounded-2xl" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-5 w-1/3" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-2 gap-4">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-12 rounded-2xl" />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
 
 export default function PerfilClient() {
   const router = useRouter();
+  const toast = useToast();
   const user = auth.currentUser;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
 
   const [email, setEmail] = useState(user?.email || "");
   const [data, setData] = useState<ProfileData>({});
 
-  // form state
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
-
   const [addressStreet, setAddressStreet] = useState("");
   const [addressNumber, setAddressNumber] = useState("");
   const [addressComplement, setAddressComplement] = useState("");
@@ -92,29 +117,22 @@ export default function PerfilClient() {
   const [addressState, setAddressState] = useState("");
   const [addressZip, setAddressZip] = useState("");
 
-  const displayName = useMemo(() => {
-    return (name || data.name || email || "Seu perfil").trim();
-  }, [name, data.name, email]);
+  const displayName = useMemo(
+    () => (name || data.name || email || "Seu perfil").trim(),
+    [name, data.name, email]
+  );
 
   const load = useCallback(async () => {
     const u = auth.currentUser;
-    if (!u) {
-      router.replace("/aluno/entrar");
-      return;
-    }
-
+    if (!u) { router.replace("/aluno/entrar"); return; }
     setLoading(true);
     try {
       setEmail(u.email || "");
-
-      const ref = doc(db, "users", u.uid);
-      const snap = await getDoc(ref);
+      const snap = await getDoc(doc(db, "users", u.uid));
       const d = (snap.exists() ? (snap.data() as ProfileData) : {}) || {};
       setData(d);
-
       setName(d.name || "");
       setPhone(d.phone || "");
-
       setAddressStreet(d.addressStreet || "");
       setAddressNumber(d.addressNumber || "");
       setAddressComplement(d.addressComplement || "");
@@ -127,253 +145,199 @@ export default function PerfilClient() {
     }
   }, [router]);
 
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  function startEdit() {
-    setEditing(true);
-  }
+  useEffect(() => { void load(); }, [load]);
 
   function cancelEdit() {
-    // volta pro que está no Firestore (data)
-    setName(data.name || "");
-    setPhone(data.phone || "");
-
-    setAddressStreet(data.addressStreet || "");
-    setAddressNumber(data.addressNumber || "");
-    setAddressComplement(data.addressComplement || "");
-    setAddressNeighborhood(data.addressNeighborhood || "");
-    setAddressCity(data.addressCity || "");
-    setAddressState(data.addressState || "");
+    setName(data.name || ""); setPhone(data.phone || "");
+    setAddressStreet(data.addressStreet || ""); setAddressNumber(data.addressNumber || "");
+    setAddressComplement(data.addressComplement || ""); setAddressNeighborhood(data.addressNeighborhood || "");
+    setAddressCity(data.addressCity || ""); setAddressState(data.addressState || "");
     setAddressZip(data.addressZip || "");
-
     setEditing(false);
   }
 
   async function onSave() {
     const u = auth.currentUser;
     if (!u) return;
-
     setSaving(true);
     try {
-      const ref = doc(db, "users", u.uid);
-
       const payload: ProfileData = {
-        name: name.trim(),
-        phone: phone.trim(),
-
-        addressStreet: addressStreet.trim(),
-        addressNumber: addressNumber.trim(),
-        addressComplement: addressComplement.trim(),
-        addressNeighborhood: addressNeighborhood.trim(),
-        addressCity: addressCity.trim(),
-        addressState: addressState.trim(),
+        name: name.trim(), phone: phone.trim(),
+        addressStreet: addressStreet.trim(), addressNumber: addressNumber.trim(),
+        addressComplement: addressComplement.trim(), addressNeighborhood: addressNeighborhood.trim(),
+        addressCity: addressCity.trim(), addressState: addressState.trim(),
         addressZip: addressZip.trim(),
-
         updatedAt: serverTimestamp(),
-        // se não existir, cria também:
         createdAt: data.createdAt ? data.createdAt : serverTimestamp(),
-
         source: "user",
       };
-
-      // ✅ setDoc com merge evita "No document to update"
-      await setDoc(ref, payload, { merge: true });
-
+      await setDoc(doc(db, "users", u.uid), payload, { merge: true });
       setData((prev) => ({ ...prev, ...payload }));
       setEditing(false);
-      alert("Perfil atualizado!");
+      toast.success("Perfil atualizado com sucesso!");
     } catch (error: unknown) {
-      console.error(error);
-      const message = error instanceof Error && error.message ? error.message : "Erro ao salvar perfil.";
-      alert(message);
+      const msg = error instanceof Error ? error.message : "Erro ao salvar perfil.";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
   }
 
   async function resetPassword() {
-    const u = auth.currentUser;
-    const userEmail = u?.email || "";
-    if (!userEmail) {
-      alert("Seu usuário não tem e-mail.");
-      return;
+    const userEmail = auth.currentUser?.email || "";
+    if (!userEmail) { toast.error("Seu usuário não tem e-mail."); return; }
+    setSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, userEmail);
+      toast.success("Link de redefinição enviado para o seu e-mail!");
+    } catch {
+      toast.error("Não foi possível enviar o e-mail. Tente novamente.");
+    } finally {
+      setSendingReset(false);
     }
-    await sendPasswordResetEmail(auth, userEmail);
-    alert("Enviei um link de redefinição para o seu e-mail.");
   }
 
-  async function logout() {
-    await auth.signOut();
-    router.replace("/aluno/entrar");
-  }
-
-  if (loading) {
-    return (
-      <div className="rounded-3xl border bg-white shadow-sm p-6 text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300">
-        Carregando perfil…
-      </div>
-    );
-  }
+  if (loading) return <SkeletonPerfil />;
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-3xl border bg-white shadow-sm px-6 py-5 dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Área do Aluno</div>
-            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">Perfil</div>
-            <div className="text-sm text-slate-600 mt-1 dark:text-slate-300">
-              Gerencie suas informações e acesso.
-            </div>
-          </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button variant="secondary" onClick={resetPassword}>
-              Redefinir senha
-            </Button>
-            <Button onClick={logout}>
-              Sair
-            </Button>
-          </div>
-        </div>
+      {/* Page title */}
+      <div>
+        <div className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500">Minha conta</div>
+        <div className="mt-0.5 text-3xl font-black text-slate-900 dark:text-slate-100">Perfil</div>
       </div>
 
-      {/* Content grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Card: dados */}
-        <div className="lg:col-span-2 rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="flex items-center gap-4 min-w-0">
-              <div className="h-14 w-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center font-black dark:bg-slate-100 dark:text-slate-900">
-                {initials(displayName || email)}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+
+        {/* CARD PRINCIPAL — dados */}
+        <div className="lg:col-span-2 rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/50">
+
+          {/* Avatar + nome */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-4">
+              <div className="relative h-16 w-16 shrink-0">
+                <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl bg-slate-900 dark:bg-slate-100">
+                  <Image
+                    src="/logo-icon.png"
+                    alt="Logo"
+                    width={64}
+                    height={64}
+                    className="h-full w-full object-cover opacity-10"
+                  />
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center text-xl font-black text-white dark:text-slate-900">
+                  {initials(displayName || email)}
+                </div>
               </div>
               <div className="min-w-0">
                 <div className="text-lg font-black text-slate-900 truncate dark:text-slate-100">{displayName}</div>
-                <div className="text-sm text-slate-600 truncate dark:text-slate-300">{email}</div>
+                <div className="flex items-center gap-1.5 text-sm text-slate-500 truncate dark:text-slate-400">
+                  <Mail size={13} />
+                  {email}
+                </div>
               </div>
             </div>
 
             {!editing ? (
-              <Button variant="secondary" onClick={startEdit} className="w-full sm:w-auto">
-                Editar informações
+              <Button variant="secondary" onClick={() => setEditing(true)} className="w-full gap-2 sm:w-auto">
+                <Pencil size={14} />
+                Editar
               </Button>
             ) : (
-              <Button variant="secondary" onClick={cancelEdit} className="w-full sm:w-auto">
+              <Button variant="secondary" onClick={cancelEdit} className="w-full gap-2 sm:w-auto">
+                <X size={14} />
                 Cancelar
               </Button>
             )}
           </div>
 
-          <div className="mt-6 grid grid-cols-1 sm:grid-cols-12 gap-4">
-            <Field
-              label="Nome"
-              value={name}
-              onChange={setName}
-              placeholder="Ex: Dr. João Silva"
-              disabled={!editing}
-              half
-            />
-            <Field
-              label="Telefone"
-              value={phone}
-              onChange={setPhone}
-              placeholder="Ex: (15) 99999-9999"
-              disabled={!editing}
-              half
-            />
+          {/* Seção: Dados pessoais */}
+          <div className="mt-6">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-600">
+              <User size={11} />
+              Dados pessoais
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+              <Field label="Nome completo" icon={User} value={name} onChange={setName}
+                placeholder="Ex: Dr. João Silva" disabled={!editing} half />
+              <Field label="Telefone" icon={Phone} value={phone} onChange={setPhone}
+                placeholder="Ex: (15) 99999-9999" disabled={!editing} half />
+            </div>
+          </div>
 
-            {/* Endereço */}
-            <Field
-              label="Rua / Avenida"
-              value={addressStreet}
-              onChange={setAddressStreet}
-              placeholder="Ex: Av. Barão de Tatuí"
-              disabled={!editing}
-            />
-            <Field
-              label="Número"
-              value={addressNumber}
-              onChange={setAddressNumber}
-              placeholder="Ex: 123"
-              disabled={!editing}
-              half
-            />
-            <Field
-              label="Complemento"
-              value={addressComplement}
-              onChange={setAddressComplement}
-              placeholder="Ex: Apto 12 / Bloco B"
-              disabled={!editing}
-              half
-            />
-            <Field
-              label="Bairro"
-              value={addressNeighborhood}
-              onChange={setAddressNeighborhood}
-              placeholder="Ex: Centro"
-              disabled={!editing}
-              half
-            />
-            <Field
-              label="Cidade"
-              value={addressCity}
-              onChange={setAddressCity}
-              placeholder="Ex: Sorocaba"
-              disabled={!editing}
-              half
-            />
-            <Field
-              label="UF"
-              value={addressState}
-              onChange={setAddressState}
-              placeholder="Ex: SP"
-              disabled={!editing}
-              half
-            />
-            <Field
-              label="CEP"
-              value={addressZip}
-              onChange={setAddressZip}
-              placeholder="Ex: 18000-000"
-              disabled={!editing}
-              half
-            />
+          {/* Seção: Endereço (necessário para NF) */}
+          <div className="mt-5">
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-slate-600">
+              <MapPin size={11} />
+              Endereço <span className="normal-case font-normal text-slate-400">(para emissão de nota fiscal)</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
+              <Field label="Rua / Avenida" value={addressStreet} onChange={setAddressStreet}
+                placeholder="Ex: Av. Barão de Tatuí" disabled={!editing} />
+              <Field label="Número" value={addressNumber} onChange={setAddressNumber}
+                placeholder="Ex: 123" disabled={!editing} half />
+              <Field label="Complemento" value={addressComplement} onChange={setAddressComplement}
+                placeholder="Ex: Apto 12 / Bloco B" disabled={!editing} half />
+              <Field label="Bairro" value={addressNeighborhood} onChange={setAddressNeighborhood}
+                placeholder="Ex: Centro" disabled={!editing} half />
+              <Field label="Cidade" value={addressCity} onChange={setAddressCity}
+                placeholder="Ex: Sorocaba" disabled={!editing} half />
+              <Field label="UF" value={addressState} onChange={setAddressState}
+                placeholder="Ex: SP" disabled={!editing} half />
+              <Field label="CEP" value={addressZip} onChange={setAddressZip}
+                placeholder="Ex: 18000-000" disabled={!editing} half />
+            </div>
           </div>
 
           <div className="mt-6 flex justify-end">
-            <Button
-              onClick={onSave}
-              disabled={!editing || saving}
-              className={!editing ? "w-full bg-slate-300 text-slate-700 shadow-none hover:bg-slate-300 sm:w-auto" : "w-full sm:w-auto"}
-            >
+            <Button onClick={onSave} disabled={!editing || saving} className="w-full gap-2 sm:w-auto">
+              <Save size={14} />
               {saving ? "Salvando…" : "Salvar alterações"}
             </Button>
           </div>
         </div>
 
-        {/* Card: segurança */}
-        <div className="rounded-3xl border bg-white shadow-sm p-6 dark:border-slate-800 dark:bg-slate-900">
-          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Segurança</div>
+        {/* CARD LATERAL — segurança */}
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800/80 dark:bg-slate-900/50">
+            <div className="flex items-center gap-2 text-base font-black text-slate-900 dark:text-slate-100">
+              <KeyRound size={16} />
+              Segurança
+            </div>
 
-          <div className="mt-4 rounded-2xl border bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">E-mail de acesso</div>
-            <div className="text-sm text-slate-700 mt-1 break-all dark:text-slate-300">{email}</div>
+            <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">E-mail de acesso</div>
+              <div className="mt-1 break-all text-sm font-semibold text-slate-800 dark:text-slate-100">{email}</div>
+            </div>
+
+            <div className="mt-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Senha</div>
+              <div className="mt-1 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                Para trocar sua senha, clique abaixo e você receberá um link no e-mail.
+              </div>
+            </div>
+
+            <Button
+              variant="secondary"
+              onClick={resetPassword}
+              disabled={sendingReset}
+              className="mt-4 w-full gap-2"
+            >
+              <KeyRound size={14} />
+              {sendingReset ? "Enviando…" : "Redefinir senha"}
+            </Button>
           </div>
 
-          <div className="mt-4 rounded-2xl border bg-white p-4 dark:border-slate-700 dark:bg-slate-900">
-            <div className="text-sm font-semibold text-slate-800 dark:text-slate-100">Dica</div>
-            <div className="text-sm text-slate-700 mt-2 leading-relaxed dark:text-slate-300">
-              Para trocar a senha, use <span className="font-semibold">Redefinir senha</span> —
-              você recebe o link no e-mail.
+          {/* Logo card */}
+          <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+            <Image src="/logo-icon.png" alt="Anestesia Questões" width={36} height={36}
+              className="h-9 w-9 rounded-xl object-contain" />
+            <div className="min-w-0">
+              <div className="text-sm font-black text-slate-900 truncate dark:text-slate-100">Anestesia Questões</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400">Área do Aluno</div>
             </div>
           </div>
-
-          <Button variant="secondary" onClick={() => router.push("/aluno")} className="mt-4 w-full">
-            Voltar ao Início
-          </Button>
         </div>
       </div>
     </div>

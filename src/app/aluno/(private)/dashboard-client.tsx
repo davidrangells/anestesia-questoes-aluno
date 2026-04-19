@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
+import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap } from "lucide-react";
 
 type SessionDoc = {
   id: string;
@@ -467,9 +468,43 @@ export default function DashboardClient() {
       ? "text-amber-600 dark:text-amber-400"
       : "text-rose-600 dark:text-rose-400";
 
+  // Saudação por horário
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite";
+  const firstName = (auth.currentUser?.displayName || "").split(" ")[0] || "Aluno";
+  const todayLabel = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
+
+  // Trend icon
+  const TrendIcon = trendLabel.startsWith("Subiu")
+    ? TrendingUp
+    : trendLabel.startsWith("Caiu")
+    ? TrendingDown
+    : Minus;
+  const trendColor = trendLabel.startsWith("Subiu")
+    ? "text-emerald-600 dark:text-emerald-400"
+    : trendLabel.startsWith("Caiu")
+    ? "text-rose-500 dark:text-rose-400"
+    : "text-slate-500 dark:text-slate-400";
+
   return (
     <div className="space-y-6 overflow-x-hidden">
-      {/* Métricas heroicas */}
+
+      {/* GREETING */}
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500 capitalize">{todayLabel}</div>
+          <div className="mt-0.5 text-2xl font-black text-slate-900 dark:text-slate-100">
+            {greeting}, {firstName}! 👋
+          </div>
+          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{lastStudyLabel}</div>
+        </div>
+        <Button className="mt-3 w-full gap-2 sm:mt-0 sm:w-auto" onClick={() => router.push(inProgressSession ? `/aluno/simulados/${inProgressSession.id}` : "/aluno/simulados/novo")}>
+          <Zap size={14} />
+          {inProgressSession ? "Continuar simulado" : "Novo simulado"}
+        </Button>
+      </div>
+
+      {/* MÉTRICAS HEROICAS */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
           <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Aproveitamento</div>
@@ -501,74 +536,60 @@ export default function DashboardClient() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="space-y-4">
-          <div>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Seu painel de estudo</div>
-            <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">Próximo passo recomendado</div>
-            <div className="mt-2 text-sm text-slate-600 dark:text-slate-300">{lastStudyLabel}</div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Button
-              className="w-full"
-              onClick={() =>
-                router.push(
-                  inProgressSession ? `/aluno/simulados/${inProgressSession.id}` : "/aluno/simulados/novo"
-                )
-              }
-            >
-              {inProgressSession ? "Continuar último simulado" : "Iniciar simulado"}
-            </Button>
-
-            <Button className="w-full" variant="secondary" onClick={() => router.push("/aluno/simulados/novo")}>
-              Novo simulado
-            </Button>
-
-            <Button className="w-full" variant="secondary" onClick={() => router.push(recommendationHref)}>
-              Reforçar tema fraco
-            </Button>
-          </div>
-        </CardHeader>
-      </Card>
-
+      {/* RESUMO SEMANA + RECOMENDAÇÃO */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Últimos 7 dias</div>
-            <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">Resumo da semana</div>
-          </CardHeader>
-          <CardBody className="space-y-3">
-            <div className="grid grid-cols-3 gap-2">
-              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Respondidas</div>
-                <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{stats7d.answered}</div>
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Últimos 7 dias</div>
+                <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">Resumo da semana</div>
               </div>
-              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Acerto</div>
-                <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{formatPct(stats7d.accuracy)}</div>
-              </div>
-              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Concluídos</div>
-                <div className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{stats7d.completed}</div>
+              <div className={cn("flex items-center gap-1 text-xs font-semibold", trendColor)}>
+                <TrendIcon size={14} />
+                <span className="hidden sm:inline">{trendLabel}</span>
               </div>
             </div>
-            <div className="text-sm text-slate-600 dark:text-slate-300">{trendLabel}</div>
+          </CardHeader>
+          <CardBody>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Respondidas</div>
+                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{stats7d.answered || "—"}</div>
+              </div>
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Acerto</div>
+                <div className={cn("mt-1 text-2xl font-black",
+                  stats7d.accuracy >= 70 ? "text-emerald-600 dark:text-emerald-400" :
+                  stats7d.accuracy >= 50 ? "text-amber-600 dark:text-amber-400" :
+                  stats7d.answered > 0 ? "text-rose-500 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"
+                )}>
+                  {stats7d.answered > 0 ? formatPct(stats7d.accuracy) : "—"}
+                </div>
+              </div>
+              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Concluídos</div>
+                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{stats7d.completed || "—"}</div>
+              </div>
+            </div>
           </CardBody>
         </Card>
 
         <Card>
           <CardHeader>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Plano sugerido</div>
-            <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
-              {needsFocus ? `Treino de ${needsFocus.theme}` : "Simulado rápido"}
+            <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Recomendação</div>
+            <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">
+              {needsFocus ? `Reforçar: ${needsFocus.theme}` : "Simulado rápido"}
             </div>
           </CardHeader>
           <CardBody className="space-y-3">
-            <div className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button onClick={() => router.push(recommendationHref)}>Treino recomendado</Button>
-              <Button variant="secondary" onClick={() => router.push("/aluno/simulados/novo?qtd=10")}>
+            <p className="text-sm text-slate-600 dark:text-slate-400">{recommendation}</p>
+            <div className="flex gap-2">
+              <Button className="flex-1 gap-1.5" onClick={() => router.push(recommendationHref)}>
+                <BookOpen size={14} />
+                {needsFocus ? "Treinar tema" : "Iniciar"}
+              </Button>
+              <Button className="flex-1" variant="secondary" onClick={() => router.push("/aluno/simulados/novo?qtd=10")}>
                 Sprint 10 questões
               </Button>
             </div>
@@ -651,75 +672,99 @@ export default function DashboardClient() {
         </CardHeader>
       </Card>
 
-      {/* Desempenho */}
+      {/* GRÁFICO DE EVOLUÇÃO */}
       <Card>
         <CardHeader>
-          <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">Desempenho recente</div>
-          <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">Evolução dos últimos simulados</div>
+          <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Evolução</div>
+          <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">Desempenho nos últimos simulados</div>
         </CardHeader>
         <CardBody>
           {performanceSeries.length < 2 ? (
-            <div className="text-sm text-slate-600 dark:text-slate-300">
-              Complete mais simulados para visualizar o gráfico de desempenho.
+            <div className="flex flex-col items-center gap-3 py-6 text-center">
+              <div className="text-sm text-slate-500 dark:text-slate-400">
+                Complete mais simulados para visualizar seu gráfico de evolução.
+              </div>
+              <Button variant="secondary" onClick={() => router.push("/aluno/simulados/novo")}>
+                Criar simulado
+              </Button>
             </div>
           ) : (
-            <div className="space-y-3">
-              <div className="overflow-x-auto">
-                <svg viewBox="0 0 520 180" className="h-44 min-w-[520px] w-full">
-                  <defs>
-                    <linearGradient id="aqLine" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0%" stopColor="#60a5fa" stopOpacity="1" />
-                      <stop offset="100%" stopColor="#2563eb" stopOpacity="1" />
-                    </linearGradient>
-                  </defs>
-                  {[0, 25, 50, 75, 100].map((tick) => {
-                    const y = 12 + (100 - tick) * 1.35;
-                    return (
-                      <line
-                        key={tick}
-                        x1="20"
-                        x2="500"
-                        y1={y}
-                        y2={y}
-                        stroke="currentColor"
-                        className="text-slate-300 dark:text-slate-700"
-                        strokeDasharray="4 4"
-                      />
-                    );
-                  })}
-                  <polyline
-                    fill="none"
-                    stroke="url(#aqLine)"
-                    strokeWidth="3"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    points={performanceSeries
-                      .map((item, index) => {
-                        const step = performanceSeries.length > 1 ? 480 / (performanceSeries.length - 1) : 0;
-                        const x = 20 + index * step;
-                        const y = 12 + (100 - item.value) * 1.35;
-                        return `${x},${y}`;
-                      })
-                      .join(" ")}
-                  />
-                  {performanceSeries.map((item, index) => {
-                    const step = performanceSeries.length > 1 ? 480 / (performanceSeries.length - 1) : 0;
-                    const x = 20 + index * step;
-                    const y = 12 + (100 - item.value) * 1.35;
-                    return (
-                      <g key={item.id}>
-                        <circle cx={x} cy={y} r="4.5" fill="#0f172a" className="dark:fill-slate-100" />
-                        <text x={x} y="170" textAnchor="middle" className="fill-slate-500 dark:fill-slate-400 text-[11px]">
-                          {item.label}
-                        </text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-              <div className="text-xs text-slate-500 dark:text-slate-400">
-                Linha de tendência por nota/progresso dos últimos simulados.
-              </div>
+            <div className="overflow-x-auto">
+              <svg viewBox="0 0 520 190" className="h-48 min-w-[400px] w-full">
+                <defs>
+                  <linearGradient id="aqAreaGrad" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.25" />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity="0.02" />
+                  </linearGradient>
+                  <linearGradient id="aqLineGrad" x1="0" x2="1" y1="0" y2="0">
+                    <stop offset="0%" stopColor="#6366f1" />
+                    <stop offset="100%" stopColor="#3b82f6" />
+                  </linearGradient>
+                </defs>
+
+                {/* Grid lines com labels */}
+                {[0, 25, 50, 75, 100].map((tick) => {
+                  const y = 14 + (100 - tick) * 1.4;
+                  return (
+                    <g key={tick}>
+                      <line x1="36" x2="508" y1={y} y2={y} stroke="currentColor"
+                        className="text-slate-200 dark:text-slate-700/60" strokeDasharray="3 4" />
+                      <text x="30" y={y + 4} textAnchor="end" fontSize="10"
+                        className="fill-slate-400 dark:fill-slate-600">{tick}%</text>
+                    </g>
+                  );
+                })}
+
+                {/* Área preenchida */}
+                <path
+                  fill="url(#aqAreaGrad)"
+                  d={[
+                    performanceSeries.map((item, i) => {
+                      const step = performanceSeries.length > 1 ? 472 / (performanceSeries.length - 1) : 0;
+                      const x = 36 + i * step;
+                      const y = 14 + (100 - item.value) * 1.4;
+                      return i === 0 ? `M ${x},${y}` : `L ${x},${y}`;
+                    }).join(" "),
+                    `L ${36 + (performanceSeries.length - 1) * (472 / Math.max(1, performanceSeries.length - 1))},154`,
+                    `L 36,154 Z`
+                  ].join(" ")}
+                />
+
+                {/* Linha */}
+                <polyline
+                  fill="none"
+                  stroke="url(#aqLineGrad)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  points={performanceSeries.map((item, i) => {
+                    const step = performanceSeries.length > 1 ? 472 / (performanceSeries.length - 1) : 0;
+                    const x = 36 + i * step;
+                    const y = 14 + (100 - item.value) * 1.4;
+                    return `${x},${y}`;
+                  }).join(" ")}
+                />
+
+                {/* Pontos + labels */}
+                {performanceSeries.map((item, i) => {
+                  const step = performanceSeries.length > 1 ? 472 / (performanceSeries.length - 1) : 0;
+                  const x = 36 + i * step;
+                  const y = 14 + (100 - item.value) * 1.4;
+                  const isLast = i === performanceSeries.length - 1;
+                  return (
+                    <g key={item.id}>
+                      <circle cx={x} cy={y} r={isLast ? 5.5 : 4} fill={isLast ? "#3b82f6" : "#6366f1"}
+                        stroke="white" strokeWidth="2" className="dark:stroke-slate-900" />
+                      {isLast && (
+                        <text x={x} y={y - 10} textAnchor="middle" fontSize="10" fontWeight="700"
+                          className="fill-blue-600 dark:fill-blue-400">{Math.round(item.value)}%</text>
+                      )}
+                      <text x={x} y="178" textAnchor="middle" fontSize="10"
+                        className="fill-slate-400 dark:fill-slate-500">{item.label}</text>
+                    </g>
+                  );
+                })}
+              </svg>
             </div>
           )}
         </CardBody>
@@ -818,171 +863,83 @@ export default function DashboardClient() {
         </div>
       ) : null}
 
-      {/* Recentes */}
-      <div className="space-y-3">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <div className="text-lg font-black text-slate-900 dark:text-slate-100">Simulados recentes</div>
-            <div className="text-sm text-slate-600 dark:text-slate-400">Seus últimos 3 simulados</div>
+      {/* SIMULADOS RECENTES — lista compacta */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Recentes</div>
+              <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">Últimos simulados</div>
+            </div>
+            <button
+              onClick={() => router.push("/aluno/simulados")}
+              className="flex items-center gap-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
+            >
+              Ver todos <ChevronRight size={13} />
+            </button>
           </div>
-
-          <Button className="w-full sm:w-auto" variant="secondary" onClick={() => router.push("/aluno/simulados")}>
-            Ver todos
-          </Button>
-        </div>
-
-        {recentTop3.length === 0 ? (
-          <div className="rounded-3xl border bg-white p-6 shadow-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900/70 dark:text-slate-300">
-            Você ainda não iniciou nenhum simulado.
-          </div>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-3">
-            {recentTop3.map((s) => {
-              const title = formatSimuladoNumber(sessionNumberById.get(s.id));
-              const total = safeNum(s.totalQuestions);
-              const answeredRaw = safeNum(s.answeredCount);
-              const answered = total > 0 ? Math.min(answeredRaw, total) : answeredRaw;
-              const correct = safeNum(s.correctCount);
-              const status = s.status ?? "in_progress";
-
-              const pct =
-                status === "completed"
+        </CardHeader>
+        <CardBody className="p-0">
+          {recentTop3.length === 0 ? (
+            <div className="px-5 pb-5 text-sm text-slate-500 dark:text-slate-400">
+              Você ainda não iniciou nenhum simulado.
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              {recentTop3.map((s) => {
+                const title = formatSimuladoNumber(sessionNumberById.get(s.id));
+                const total = safeNum(s.totalQuestions);
+                const answeredRaw = safeNum(s.answeredCount);
+                const answered = total > 0 ? Math.min(answeredRaw, total) : answeredRaw;
+                const correct = safeNum(s.correctCount);
+                const status = s.status ?? "in_progress";
+                const isCompleted = status === "completed";
+                const pct = isCompleted
                   ? safeNum(s.scorePercent, 0)
-                  : total > 0
-                  ? (answered / total) * 100
-                  : 0;
+                  : total > 0 ? (answered / total) * 100 : 0;
+                const pctColor = pct >= 70 ? "text-emerald-600 dark:text-emerald-400"
+                  : pct >= 50 ? "text-amber-600 dark:text-amber-400"
+                  : answered > 0 ? "text-rose-500 dark:text-rose-400"
+                  : "text-slate-400 dark:text-slate-600";
 
-              const badgeCls =
-                status === "completed"
-                  ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-500/30"
-                  : "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:border-amber-500/30";
-
-              const badgeText = status === "completed" ? "Concluído" : "Em andamento";
-
-              return (
-                <Card key={s.id} className="overflow-hidden">
-                  <CardHeader className="space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Simulado</div>
-                        <div className="mt-1 font-black text-slate-900 truncate dark:text-slate-100">{title}</div>
+                return (
+                  <div key={s.id} className="flex items-center gap-4 px-5 py-4">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-slate-900 dark:text-slate-100 text-sm">{title}</span>
+                        <span className={cn(
+                          "rounded-full border px-2 py-0.5 text-[10px] font-bold",
+                          isCompleted
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+                            : "border-indigo-200 bg-indigo-50 text-indigo-700 dark:border-indigo-900/40 dark:bg-indigo-950/30 dark:text-indigo-300"
+                        )}>
+                          {isCompleted ? "Concluído" : "Andamento"}
+                        </span>
                       </div>
-
-                      <span
-                        className={cn(
-                          "shrink-0 rounded-full border px-3 py-1 text-xs font-bold",
-                          badgeCls
-                        )}
+                      <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                        {answered}/{total || "—"} respondidas · {correct} acertos
+                      </div>
+                      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                        <div className={cn("h-full rounded-full", isCompleted ? "bg-emerald-500" : "bg-indigo-500")}
+                          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }} />
+                      </div>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <div className={cn("text-xl font-black", pctColor)}>{answered > 0 ? formatPct(pct) : "—"}</div>
+                      <button
+                        onClick={() => router.push(isCompleted ? `/aluno/simulados/${s.id}/resultado` : `/aluno/simulados/${s.id}`)}
+                        className="mt-1 text-xs font-semibold text-slate-500 transition hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100"
                       >
-                        {badgeText}
-                      </span>
+                        {isCompleted ? "Resultado →" : "Continuar →"}
+                      </button>
                     </div>
-
-                    <div className="rounded-2xl border bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-800">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">
-                          {status === "completed" ? "Nota" : "Progresso"}
-                        </div>
-                        <div className="text-xs font-semibold text-slate-600 dark:text-slate-300">
-                          {answered}/{total || "—"}
-                        </div>
-                      </div>
-
-                      <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
-                        {formatPct(pct)}
-                      </div>
-
-                      <div className="mt-3 h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-                        <div
-                          className="h-full rounded-full bg-slate-900 transition-all dark:bg-slate-100"
-                          style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-                        />
-                      </div>
-
-                      <div className="mt-2 text-xs text-slate-600 dark:text-slate-300">
-                        Acertos:{" "}
-                        <span className="font-semibold text-slate-900 dark:text-slate-100">{correct}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex items-stretch gap-2">
-                      {status !== "completed" ? (
-                        <Button className="min-w-0 flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}`)}>
-                          Continuar
-                        </Button>
-                      ) : (
-                        <Button className="min-w-0 flex-1" onClick={() => router.push(`/aluno/simulados/${s.id}/resultado`)}>
-                          Resultado
-                        </Button>
-                      )}
-
-                      <Button
-                        variant="secondary"
-                        onClick={() => router.push("/aluno/simulados")}
-                        className="shrink-0 px-4"
-                        title="Ver todos"
-                      >
-                        Todos
-                      </Button>
-                    </div>
-                  </CardHeader>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Cards principais (compactos) */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Progresso</div>
-            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">
-              {stats.totalQuestoes > 0 ? formatPct(stats.progressoPct) : "—"}
+                  </div>
+                );
+              })}
             </div>
-            <div className="text-xs text-slate-600 dark:text-slate-300">{progressoLabel}</div>
-          </CardHeader>
-          <CardBody>
-            <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-700 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-slate-900 transition-all dark:bg-slate-100"
-                style={{ width: `${Math.min(100, Math.max(0, stats.progressoPct))}%` }}
-              />
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Questões resolvidas</div>
-            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{resolvidasLabel}</div>
-            <div className="text-xs text-slate-600 dark:text-slate-300">Total confirmadas</div>
-          </CardHeader>
-          <CardBody>
-            <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Acertos</div>
-              <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">{stats.acertos}</div>
-            </div>
-          </CardBody>
-        </Card>
-
-        <Card>
-          <CardHeader className="space-y-1">
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Aproveitamento</div>
-            <div className="text-2xl font-black text-slate-900 dark:text-slate-100">{aproveitamentoLabel}</div>
-            <div className="text-xs text-slate-600 dark:text-slate-300">Base: {stats.respondidas}</div>
-          </CardHeader>
-          <CardBody>
-            <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-              <div className="text-[11px] font-semibold text-slate-500 dark:text-slate-400">Concluídos</div>
-              <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
-                {stats.concluidos} / {stats.totalSimulados}
-              </div>
-            </div>
-          </CardBody>
-        </Card>
-      </div>
+          )}
+        </CardBody>
+      </Card>
     </div>
   );
 }

@@ -118,25 +118,40 @@ export default function LoginClient() {
         <div className="grid w-full overflow-hidden rounded-3xl border border-blue-200/15 bg-white/95 shadow-[0_25px_80px_rgba(2,6,23,0.45)] backdrop-blur md:grid-cols-[1.1fr_1fr] dark:border-blue-300/20 dark:bg-[#020b23]/90">
           <div className="relative hidden flex-col justify-between overflow-hidden border-r border-blue-200/20 p-8 md:flex dark:border-blue-300/15">
             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(900px_circle_at_20%_0%,rgba(56,189,248,0.23),transparent_55%),radial-gradient(700px_circle_at_100%_80%,rgba(37,99,235,0.26),transparent_50%)]" />
-            <div className="relative z-10">
-              <div className="inline-flex items-center gap-3 rounded-2xl border border-blue-200/30 bg-white/85 px-4 py-3 dark:border-blue-300/20 dark:bg-[#081937]/80">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#071a3f]">
-                  <Image src="/logo.png" alt="Logo Anestesia Questões" width={38} height={38} className="h-9 w-9 object-contain" />
-                </div>
-                <div>
-                  <div className="text-sm font-black text-slate-900 dark:text-slate-100">Anestesia Questões</div>
-                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Área do Aluno</div>
-                </div>
+
+            {/* Brand topo */}
+            <div className="relative z-10 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#071a3f] shadow-lg">
+                <Image src="/logo-icon.png" alt="Logo" width={28} height={28} className="h-7 w-7 object-contain" />
               </div>
+              <div className="text-sm font-black text-slate-900 dark:text-slate-100">Anestesia Questões</div>
             </div>
 
-            <div className="relative z-10">
-              <h1 className="max-w-sm text-3xl font-black leading-tight text-slate-900 dark:text-slate-100">
-                Seu estudo em anestesia, com foco no que mais importa.
+            {/* Hero central */}
+            <div className="relative z-10 flex flex-col items-center py-6 text-center">
+              <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-3xl bg-[#071a3f] shadow-[0_20px_60px_rgba(37,99,235,0.4)]">
+                <Image src="/logo.png" alt="Anestesia Questões" width={80} height={80} className="h-16 w-16 object-contain" />
+              </div>
+              <h1 className="text-2xl font-black leading-tight text-slate-900 dark:text-slate-100">
+                Estude com foco.<br />Evolua com dados.
               </h1>
-              <p className="mt-4 max-w-sm text-sm leading-6 text-slate-600 dark:text-slate-300">
-                Acesse seus simulados, acompanhe desempenho por tema e mantenha a evolução constante.
+              <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
+                Simulados personalizados, diagnóstico por tema<br />e acompanhamento de desempenho em tempo real.
               </p>
+            </div>
+
+            {/* Features */}
+            <div className="relative z-10 space-y-2">
+              {[
+                { icon: "🧠", text: "+1.600 questões comentadas" },
+                { icon: "📊", text: "Dashboard de desempenho por tema" },
+                { icon: "🎯", text: "Simulados ME1, ME2, ME3 e TEA" },
+              ].map((f) => (
+                <div key={f.text} className="flex items-center gap-3 rounded-2xl border border-blue-200/20 bg-white/60 px-4 py-3 dark:border-blue-300/10 dark:bg-[#081937]/60">
+                  <span className="text-base">{f.icon}</span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{f.text}</span>
+                </div>
+              ))}
             </div>
           </div>
 
