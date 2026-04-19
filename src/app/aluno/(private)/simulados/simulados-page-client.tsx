@@ -15,6 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { SkeletonList } from "@/components/ui/skeleton";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -228,13 +229,7 @@ export default function SimuladosPageClient() {
         </Card>
       ) : null}
 
-      {loading && !sessions.length ? (
-        <Card>
-          <CardBody>
-            <div className="text-slate-600 dark:text-slate-300">Carregando…</div>
-          </CardBody>
-        </Card>
-      ) : null}
+      {loading && !sessions.length ? <SkeletonList rows={5} /> : null}
 
       {!loading && !sessions.length && !err ? (
         <Card>

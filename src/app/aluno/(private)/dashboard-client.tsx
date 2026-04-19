@@ -7,6 +7,7 @@ import { useRouter } from "next/navigation";
 
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SkeletonDashboard } from "@/components/ui/skeleton";
 
 type SessionDoc = {
   id: string;
@@ -407,30 +408,7 @@ export default function DashboardClient() {
   }, [sessionsPrev7d.length, sessionsLast7d.length, stats7d.accuracy, prevAccuracy7d]);
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <div>
-          <div className="text-3xl font-black text-slate-900 dark:text-slate-100">Início</div>
-          <div className="text-sm text-slate-600 mt-1 dark:text-slate-400">Carregando seus dados…</div>
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="rounded-3xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
-              <div className="h-3 w-28 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
-              <div className="mt-4 h-8 w-20 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
-              <div className="mt-3 h-3 w-40 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
-            </div>
-          ))}
-        </div>
-
-        <div className="rounded-3xl border bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900/70">
-          <div className="h-3 w-36 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
-          <div className="mt-4 h-10 w-72 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
-          <div className="mt-3 h-3 w-56 rounded-full bg-slate-200 animate-pulse dark:bg-slate-700" />
-        </div>
-      </div>
-    );
+    return <SkeletonDashboard />;
   }
 
   if (err) {
@@ -482,8 +460,47 @@ export default function DashboardClient() {
     : "/aluno/simulados/novo?qtd=10";
   const lastStudyLabel = formatRelativeStudyTime(tsToMs(lastSession?.updatedAt || lastSession?.createdAt));
 
+  const accuracyColor =
+    stats.aproveitamentoPct >= 70
+      ? "text-emerald-600 dark:text-emerald-400"
+      : stats.aproveitamentoPct >= 50
+      ? "text-amber-600 dark:text-amber-400"
+      : "text-rose-600 dark:text-rose-400";
+
   return (
     <div className="space-y-6 overflow-x-hidden">
+      {/* Métricas heroicas */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Aproveitamento</div>
+          <div className={cn("mt-1 text-3xl font-black", accuracyColor)}>
+            {aproveitamentoLabel}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-500">geral</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Questões</div>
+          <div className="mt-1 text-3xl font-black text-slate-900 dark:text-slate-100">
+            {resolvidasLabel}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-500">respondidas</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Simulados</div>
+          <div className="mt-1 text-3xl font-black text-slate-900 dark:text-slate-100">
+            {stats.concluidos > 0 ? String(stats.concluidos) : "—"}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-500">concluídos</div>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Acertos</div>
+          <div className="mt-1 text-3xl font-black text-slate-900 dark:text-slate-100">
+            {stats.acertos > 0 ? String(stats.acertos) : "—"}
+          </div>
+          <div className="mt-1 text-xs text-slate-500 dark:text-slate-500">no total</div>
+        </div>
+      </div>
+
       <Card>
         <CardHeader className="space-y-4">
           <div>
