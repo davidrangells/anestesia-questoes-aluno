@@ -186,6 +186,64 @@ function sanitizeRichText(raw: string) {
   return doc.body.innerHTML;
 }
 
+/**
+ * Remove parágrafos vazios excessivos, <li> vazios e mescla listas adjacentes
+ * do mesmo tipo. Não altera formatação (negrito, itálico, etc.).
+ */
+function normalizeHtml(html: string): string {
+  if (!html || typeof window === "undefined") return html;
+  const parser = new window.DOMParser();
+  const doc = parser.parseFromString(html, "text/html");
+
+  // Remove <li> sem conteúdo
+  doc.querySelectorAll("li").forEach((li) => {
+    if (!(li.textContent ?? "").trim() && !li.querySelector("img")) li.remove();
+  });
+
+  // Mescla listas adjacentes do mesmo tipo separadas por parágrafos vazios
+  Array.from(doc.body.children).forEach((el) => {
+    const tag = el.tagName;
+    if (tag !== "UL" && tag !== "OL") return;
+    let next = el.nextElementSibling;
+    while (next && next.tagName === "P" && !(next.textContent ?? "").trim()) {
+      const toRemove = next;
+      next = next.nextElementSibling;
+      toRemove.remove();
+    }
+    if (next && next.tagName === tag) {
+      while (next.firstChild) el.appendChild(next.firstChild);
+      next.remove();
+    }
+  });
+
+  // Colapsa parágrafos vazios consecutivos: máximo 1 seguido
+  let emptyRun = 0;
+  Array.from(doc.body.children).forEach((child) => {
+    const isEmpty =
+      child.tagName === "P" &&
+      !(child.textContent ?? "").trim() &&
+      !child.querySelector("img");
+    if (isEmpty) {
+      emptyRun++;
+      if (emptyRun > 1) child.remove();
+    } else {
+      emptyRun = 0;
+    }
+  });
+
+  // Remove parágrafos vazios no início e fim
+  while (
+    doc.body.firstElementChild?.tagName === "P" &&
+    !(doc.body.firstElementChild.textContent ?? "").trim()
+  ) doc.body.firstElementChild.remove();
+  while (
+    doc.body.lastElementChild?.tagName === "P" &&
+    !(doc.body.lastElementChild.textContent ?? "").trim()
+  ) doc.body.lastElementChild.remove();
+
+  return doc.body.innerHTML;
+}
+
 function safeStr(v: unknown) {
   return String(v ?? "").trim();
 }
@@ -370,7 +428,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
       "Pergunta não encontrada"
     );
   }, [currentQuestion]);
-  const statementHtml = useMemo(() => sanitizeRichText(safeStr(statement)), [statement]);
+  const statementHtml = useMemo(() => normalizeHtml(sanitizeRichText(safeStr(statement))), [statement]);
 
   const correctId = useMemo(() => {
     return (
@@ -394,7 +452,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     // se vier "Resposta: X Comentário: Y", mantém tudo
     return s;
   }, [currentQuestion]);
-  const explanationHtml = useMemo(() => sanitizeRichText(explanationText), [explanationText]);
+  const explanationHtml = useMemo(() => normalizeHtml(sanitizeRichText(explanationText)), [explanationText]);
 
   const referenceText = useMemo(() => {
     const raw =
