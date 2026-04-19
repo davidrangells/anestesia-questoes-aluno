@@ -34,14 +34,28 @@ function Item({
   label,
   Icon,
   onNavigate,
+  disabled,
 }: {
   href: string;
   label: string;
   Icon: LucideIcon;
   onNavigate?: () => void;
+  disabled?: boolean;
 }) {
   const pathname = usePathname();
   const active = isActivePath(pathname, href);
+
+  if (disabled) {
+    return (
+      <div className="flex cursor-not-allowed items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold opacity-40">
+        <Icon size={18} className="shrink-0 opacity-60" />
+        <span className="truncate">{label}</span>
+        <span className="ml-auto shrink-0 rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500">
+          Em breve
+        </span>
+      </div>
+    );
+  }
 
   return (
     <Link
@@ -127,7 +141,7 @@ export default function AlunoSidebar({
         </div>
         <Item href="/aluno" label="Início" Icon={Home} onNavigate={onNavigate} />
         <Item href="/aluno/simulados" label="Simulados" Icon={Brain} onNavigate={onNavigate} />
-        <Item href="/aluno/provas" label="Provas" Icon={FileText} onNavigate={onNavigate} />
+        <Item href="/aluno/provas" label="Provas" Icon={FileText} onNavigate={onNavigate} disabled />
         <Item href="/aluno/assinatura" label="Assinatura" Icon={CreditCard} onNavigate={onNavigate} />
         <Item href="/aluno/perfil" label="Perfil" Icon={User} onNavigate={onNavigate} />
       </nav>

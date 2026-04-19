@@ -16,6 +16,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { usePageHeader } from "@/components/aluno/AlunoPageHeaderContext";
+import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertCircle, Flag } from "lucide-react";
+import { SkeletonCard } from "@/components/ui/skeleton";
 
 type SessionDoc = {
   id: string;
@@ -696,33 +698,30 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Simulado</div>
-        </CardHeader>
-        <CardBody className="text-slate-600 dark:text-slate-300">Carregando…</CardBody>
-      </Card>
+      <div className="space-y-4">
+        <SkeletonCard lines={4} />
+        <SkeletonCard lines={2} />
+        <SkeletonCard lines={2} />
+        <SkeletonCard lines={2} />
+      </div>
     );
   }
 
   if (err) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="text-lg font-black text-slate-900 dark:text-slate-100">Simulado</div>
-        </CardHeader>
-        <CardBody>
-          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-300">
-            {err}
+      <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-5 dark:border-red-900/40 dark:bg-red-950/30">
+        <div className="flex items-start gap-3">
+          <AlertCircle size={20} className="mt-0.5 shrink-0 text-red-500" />
+          <div>
+            <div className="font-bold text-red-800 dark:text-red-200">Erro ao carregar</div>
+            <div className="mt-1 text-sm text-red-700 dark:text-red-300">{err}</div>
           </div>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>
-              Voltar
-            </Button>
-            <Button onClick={load}>Tentar novamente</Button>
-          </div>
-        </CardBody>
-      </Card>
+        </div>
+        <div className="mt-4 flex gap-2">
+          <Button variant="secondary" onClick={() => router.push("/aluno/simulados")}>Voltar</Button>
+          <Button onClick={load}>Tentar novamente</Button>
+        </div>
+      </div>
     );
   }
 
@@ -732,22 +731,61 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
   const finalizeDisabled = !confirmed || isSubmitting || isFinishing;
   const hasSavedAnswer = !!currentSavedAnswer && !!safeStr(currentSavedAnswer.selectedOptionId);
   const showResultPanel = confirmed || isReviewMode;
+  const progressPct = totalFromSession > 0 ? Math.round(((currentIndex + 1) / totalFromSession) * 100) : 0;
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader className="space-y-2">
-          <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Pergunta</div>
+
+      {/* Barra de progresso */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
+          <span>
+            {isReviewMode ? "Revisão" : "Questão"}{" "}
+            <span className="font-black text-slate-900 dark:text-slate-100">{currentIndex + 1}</span>
+            {" "}de{" "}
+            <span className="font-black text-slate-900 dark:text-slate-100">{totalFromSession || "—"}</span>
+          </span>
+          {isReviewMode ? (
+            <span className="rounded-full border border-slate-200 bg-slate-100 px-2.5 py-0.5 text-[11px] font-bold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+              Modo revisão
+            </span>
+          ) : (
+            <span className="font-black text-slate-900 dark:text-slate-100">{progressPct}%</span>
+          )}
+        </div>
+        <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div
+            className={cn(
+              "h-full rounded-full transition-all duration-500",
+              isReviewMode ? "bg-indigo-500" : "bg-slate-900 dark:bg-blue-500"
+            )}
+            style={{ width: `${progressPct}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Card da questão */}
+      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800/80 dark:bg-slate-900/50">
+
+        {/* Enunciado */}
+        <div className="border-b border-slate-100 px-6 py-5 dark:border-slate-800">
           <div
             className="text-[15px] leading-7 text-slate-900 dark:text-slate-100 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
             dangerouslySetInnerHTML={{ __html: statementHtml }}
           />
-        </CardHeader>
+          {currentQuestion.imageUrl ? (
+            <img
+              src={currentQuestion.imageUrl}
+              alt="Imagem da questão"
+              className="mt-4 max-h-64 w-auto rounded-xl border border-slate-200 dark:border-slate-700"
+            />
+          ) : null}
+        </div>
 
-        <CardBody className="space-y-4">
+        {/* Alternativas */}
+        <div className="space-y-2.5 px-6 py-5">
           {currentQuestion.options?.map((opt) => {
             const isSelected = selectedOptionId === opt.id;
-
             const showResult = shouldShowFeedback && !!correctId;
             const isCorrectOpt = showResult && opt.id === correctId;
             const isWrongOpt = showResult && isSelected && opt.id !== correctId;
@@ -757,199 +795,205 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                 key={opt.id}
                 type="button"
                 onClick={() => !confirmed && !isReviewMode && setSelectedOptionId(opt.id)}
+                disabled={confirmed || isReviewMode}
                 className={cn(
-                  "w-full text-left rounded-2xl border px-4 py-4 transition outline-none",
-                  "focus:ring-2 focus:ring-slate-900/10",
-                  !confirmed && !isReviewMode && "hover:shadow-[0_10px_30px_rgba(15,23,42,0.08)]",
-                  isSelected
-                    ? "border-slate-900/50 bg-slate-900/5 dark:border-slate-400 dark:bg-slate-800"
-                    : "border-slate-200 bg-white hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800",
-                  isCorrectOpt && "border-emerald-300 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30",
-                  isWrongOpt && "border-rose-300 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30"
+                  "w-full text-left rounded-2xl border px-4 py-3.5 transition outline-none",
+                  "focus-visible:ring-2 focus-visible:ring-slate-900/20",
+                  !confirmed && !isReviewMode && "cursor-pointer hover:shadow-sm",
+                  confirmed || isReviewMode ? "cursor-default" : "",
+                  isCorrectOpt
+                    ? "border-emerald-300 bg-emerald-50 dark:border-emerald-700/50 dark:bg-emerald-950/30"
+                    : isWrongOpt
+                    ? "border-rose-300 bg-rose-50 dark:border-rose-700/50 dark:bg-rose-950/30"
+                    : isSelected
+                    ? "border-slate-900 bg-slate-50 dark:border-slate-400 dark:bg-slate-800/80"
+                    : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-transparent dark:hover:bg-slate-800/50"
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <div
-                    className={cn(
-                      "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 border text-sm font-black",
-                      isCorrectOpt
-                        ? "border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-900/40 dark:bg-emerald-950/40 dark:text-emerald-300"
-                        : isWrongOpt
-                        ? "border-rose-200 bg-rose-100 text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-300"
-                        : isSelected
-                        ? "border-slate-900/40 bg-slate-900 text-white dark:border-slate-400 dark:bg-slate-100 dark:text-slate-900"
-                        : "border-slate-200 bg-white text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
-                    )}
-                  >
+                  <div className={cn(
+                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-xs font-black transition",
+                    isCorrectOpt
+                      ? "border-emerald-300 bg-emerald-100 text-emerald-800 dark:border-emerald-700/50 dark:bg-emerald-900/50 dark:text-emerald-300"
+                      : isWrongOpt
+                      ? "border-rose-300 bg-rose-100 text-rose-800 dark:border-rose-700/50 dark:bg-rose-900/50 dark:text-rose-300"
+                      : isSelected
+                      ? "border-slate-900 bg-slate-900 text-white dark:border-slate-300 dark:bg-slate-100 dark:text-slate-900"
+                      : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
+                  )}>
                     {opt.id}
                   </div>
-
-                  <div className="min-w-0">
+                  <div className="min-w-0 pt-0.5">
                     <div
-                      className="text-[14px] leading-6 text-slate-900 dark:text-slate-100 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
+                      className="text-sm leading-6 text-slate-900 dark:text-slate-100 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5"
                       dangerouslySetInnerHTML={{ __html: sanitizeRichText(safeStr(opt.text)) }}
                     />
+                    {opt.imageUrl ? (
+                      <img src={opt.imageUrl} alt="" className="mt-2 max-h-40 rounded-lg border border-slate-200 dark:border-slate-700" />
+                    ) : null}
                   </div>
+                  {isCorrectOpt && <CheckCircle2 size={18} className="ml-auto mt-0.5 shrink-0 text-emerald-500" />}
+                  {isWrongOpt && <XCircle size={18} className="ml-auto mt-0.5 shrink-0 text-rose-500" />}
                 </div>
               </button>
             );
           })}
+        </div>
 
-          {!showResultPanel ? (
-            <div className="pt-2">
-              <Button
-                className="w-full"
-                disabled={!selectedOptionId || isSubmitting}
-                onClick={onConfirm}
-              >
-                {isSubmitting ? "Confirmando…" : "Confirmar resposta"}
-              </Button>
-            </div>
-          ) : (
-            <div className="pt-2 space-y-4">
-              <div
-                className={cn(
-                  "rounded-2xl border px-5 py-4",
-                  hasSavedAnswer
-                    ? isCorrect
-                      ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
-                      : "border-rose-200 bg-rose-50 dark:border-rose-900/40 dark:bg-rose-950/30"
-                    : "border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-800"
-                )}
-              >
-                <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Resultado</div>
-                {hasSavedAnswer ? (
-                  <div
-                    className={cn(
-                      "mt-1 text-sm font-semibold",
-                      isCorrect ? "text-emerald-700 dark:text-emerald-300" : "text-rose-700 dark:text-rose-300"
-                    )}
-                  >
-                    {isCorrect ? "✅ Você acertou!" : "❌ Você errou."}
+        {/* Feedback de resultado */}
+        {showResultPanel && (
+          <div className="border-t border-slate-100 px-6 py-5 space-y-4 dark:border-slate-800">
+            {hasSavedAnswer ? (
+              <div className={cn(
+                "flex items-center gap-3 rounded-2xl border px-4 py-3.5",
+                isCorrect
+                  ? "border-emerald-200 bg-emerald-50 dark:border-emerald-800/50 dark:bg-emerald-950/40"
+                  : "border-rose-200 bg-rose-50 dark:border-rose-800/50 dark:bg-rose-950/40"
+              )}>
+                {isCorrect
+                  ? <CheckCircle2 size={22} className="shrink-0 text-emerald-500" />
+                  : <XCircle size={22} className="shrink-0 text-rose-500" />
+                }
+                <div>
+                  <div className={cn(
+                    "font-black text-base",
+                    isCorrect ? "text-emerald-800 dark:text-emerald-200" : "text-rose-800 dark:text-rose-200"
+                  )}>
+                    {isCorrect ? "Você acertou!" : "Você errou."}
                   </div>
-                ) : (
-                  <div className="mt-1 text-sm font-semibold text-slate-600 dark:text-slate-300">
-                    Questão sem resposta registrada.
-                  </div>
-                )}
+                  {!isCorrect && correctId && (
+                    <div className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-300">
+                      A resposta correta é a alternativa <strong>{correctId}</strong>
+                    </div>
+                  )}
+                </div>
               </div>
+            ) : (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                Questão sem resposta registrada.
+              </div>
+            )}
 
-              {/* ✅ comentário */}
-              {explanationText ? (
-                <div className="rounded-2xl border bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Comentário</div>
-                  <div
-                    className="mt-1 text-sm leading-6 text-slate-700 dark:text-slate-300 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-bold [&_u]:underline"
-                    dangerouslySetInnerHTML={{ __html: explanationHtml }}
-                  />
-                </div>
-              ) : null}
+            {explanationText ? (
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 px-5 py-4 dark:border-slate-700/80 dark:bg-slate-800/50">
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Comentário</div>
+                <div
+                  className="text-sm leading-6 text-slate-700 dark:text-slate-300 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_strong]:font-bold"
+                  dangerouslySetInnerHTML={{ __html: explanationHtml }}
+                />
+              </div>
+            ) : null}
 
-              {referenceText ? (
-                <div className="rounded-2xl border bg-white px-5 py-4 dark:border-slate-700 dark:bg-slate-900">
-                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Referência</div>
-                  <div
-                    className="mt-1 text-sm leading-6 text-slate-700 break-words dark:text-slate-300 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline [&_strong]:font-bold [&_u]:underline"
-                    dangerouslySetInnerHTML={{ __html: referenceHtml }}
-                  />
-                </div>
-              ) : null}
+            {referenceText ? (
+              <div className="rounded-2xl border border-slate-200 bg-white px-5 py-4 dark:border-slate-700/80 dark:bg-slate-900">
+                <div className="mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Referência</div>
+                <div
+                  className="text-sm leading-6 text-slate-600 break-words dark:text-slate-400 [&_a]:underline"
+                  dangerouslySetInnerHTML={{ __html: referenceHtml }}
+                />
+              </div>
+            ) : null}
+          </div>
+        )}
 
-            </div>
-          )}
+        {/* Botão confirmar */}
+        {!showResultPanel && (
+          <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+            <Button
+              className="w-full"
+              disabled={!selectedOptionId || isSubmitting}
+              onClick={onConfirm}
+            >
+              {isSubmitting ? "Confirmando…" : "Confirmar resposta"}
+            </Button>
+          </div>
+        )}
 
-          {/* Footer */}
-          <div className="grid grid-cols-2 gap-3 pt-4">
-            <Button className="w-full" variant="secondary" onClick={onPrev} disabled={isFirst}>
-              ← Anterior
+        {/* Navegação */}
+        <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={onPrev}
+              disabled={isFirst}
+              className="flex-1 gap-2"
+            >
+              <ChevronLeft size={16} />
+              Anterior
             </Button>
 
             {canFinalize ? (
-              <Button className="w-full" onClick={onFinish} disabled={finalizeDisabled}>
-                {isFinishing ? "Finalizando…" : "Finalizar →"}
+              <Button className="flex-1 gap-2" onClick={onFinish} disabled={finalizeDisabled}>
+                {isFinishing ? "Finalizando…" : "Finalizar"}
+                <ChevronRight size={16} />
               </Button>
             ) : isReviewMode && isLast ? (
-              <Button className="w-full" onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}>
-                Voltar ao resultado
+              <Button
+                className="flex-1 gap-2"
+                onClick={() => router.push(`/aluno/simulados/${sessionId}/resultado`)}
+              >
+                Ver resultado
+                <ChevronRight size={16} />
               </Button>
             ) : (
               <Button
-                className="w-full"
-                variant="secondary"
+                className="flex-1 gap-2"
                 onClick={onNext}
                 disabled={isReviewMode ? isLast : !confirmed || isLast}
               >
-                Próxima →
+                Próxima
+                <ChevronRight size={16} />
               </Button>
             )}
           </div>
+        </div>
+      </div>
 
-          {showResultPanel ? (
-            <div className="pt-3 space-y-3">
-              <div className="flex justify-start">
+      {/* Reportar erro — discreto, fora do card */}
+      {showResultPanel && (
+        <div className="space-y-3">
+          {reportNotice ? (
+            <div className={cn(
+              "rounded-2xl border px-4 py-3 text-sm font-semibold",
+              reportNotice.type === "success"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+                : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300"
+            )}>
+              {reportNotice.text}
+            </div>
+          ) : null}
+
+          {reportOpen ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 space-y-3 dark:border-slate-700 dark:bg-slate-900/50">
+              <div className="text-sm font-bold text-slate-900 dark:text-slate-100">Descreva o problema</div>
+              <textarea
+                className="ui-textarea"
+                placeholder="Ex: enunciado incompleto, alternativa errada, gabarito incorreto…"
+                value={reportText}
+                onChange={(e) => setReportText(e.target.value)}
+              />
+              <div className="flex gap-2">
                 <Button
-                  size="sm"
-                  className="w-auto px-4"
-                  variant="secondary"
-                  onClick={() => {
-                    setReportNotice(null);
-                    setReportOpen((v) => !v);
-                  }}
+                  onClick={onSendReport}
+                  disabled={!safeStr(reportText) || reportSending}
                 >
-                  Reportar erro
+                  {reportSending ? "Enviando…" : "Enviar"}
                 </Button>
+                <Button variant="secondary" onClick={() => setReportOpen(false)}>Cancelar</Button>
               </div>
-
-              {reportNotice ? (
-                <div
-                  className={cn(
-                    "rounded-2xl border px-4 py-3 text-sm font-semibold",
-                    reportNotice.type === "success"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
-                      : "border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/40 dark:bg-rose-950/30 dark:text-rose-300"
-                  )}
-                >
-                  {reportNotice.text}
-                </div>
-              ) : null}
-
-              {reportOpen ? (
-                <div className="rounded-2xl border bg-slate-50 p-4 space-y-3 dark:border-slate-700 dark:bg-slate-800">
-                  <div className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    Descreva o problema:
-                  </div>
-                  <textarea
-                    className="ui-textarea"
-                    placeholder="Ex: enunciado incompleto, alternativa errada, gabarito errado, etc."
-                    value={reportText}
-                    onChange={(e) => setReportText(e.target.value)}
-                  />
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      className="w-full sm:w-auto"
-                      onClick={onSendReport}
-                      disabled={!safeStr(reportText) || reportSending}
-                    >
-                      {reportSending ? "Enviando…" : "Enviar"}
-                    </Button>
-                    <Button className="w-full sm:w-auto" variant="secondary" onClick={() => setReportOpen(false)}>
-                      Cancelar
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
             </div>
-          ) : null}
-
-          {showResultPanel ? (
-            <div className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">
-              {isReviewMode
-                ? `Revisão ${Math.min(currentIndex + 1, Math.max(totalFromSession, 1))}/${Math.max(totalFromSession, 1)}`
-                : "Resposta confirmada ✓"}
-            </div>
-          ) : null}
-        </CardBody>
-      </Card>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setReportNotice(null); setReportOpen(true); }}
+              className="flex items-center gap-1.5 text-xs font-semibold text-slate-400 transition hover:text-slate-600 dark:text-slate-600 dark:hover:text-slate-400"
+            >
+              <Flag size={12} />
+              Reportar erro nesta questão
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
