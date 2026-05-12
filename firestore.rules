@@ -13,6 +13,11 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
+      // Dados de perfil salvos pelo painel admin
+      match /profile/{profileId} {
+        allow read: if isOwner(uid);
+      }
+
       // Simulados do aluno
       match /sessions/{sessionId} {
         allow read, create, update, delete: if isOwner(uid);
@@ -39,6 +44,12 @@ service cloud.firestore {
     match /temas/{id} {
       allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    // Telemetria de atividade (escrita pelo aluno, lida só pelo admin via SDK admin)
+    match /user_activity/{uid} {
+      allow write: if isOwner(uid);
+      allow read: if false;
     }
 
     // Reporte de erro pelo aluno

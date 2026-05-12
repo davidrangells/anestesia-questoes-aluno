@@ -8,6 +8,7 @@ import {
   onSnapshot,
   runTransaction,
   serverTimestamp,
+  setDoc,
   Timestamp,
 } from "firebase/firestore";
 import { usePathname, useRouter } from "next/navigation";
@@ -79,14 +80,37 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
   const [loading, setLoading] = useState(true);
   const redirectedRef = useRef(false);
   const heartbeatRef = useRef<number | null>(null);
+  const activityIntervalRef = useRef<number | null>(null);
   const sessionCheckRef = useRef<number | null>(null);
   const activeSessionUnsubRef = useRef<(() => void) | null>(null);
   const signingOutBySessionRef = useRef(false);
+
+  const sendActivityPing = useCallback(async (uid: string) => {
+    try {
+      await setDoc(
+        doc(db, "user_activity", uid),
+        {
+          uid,
+          client: "web",
+          device: typeof navigator !== "undefined" && /iphone|ipad|android/i.test(navigator.userAgent) ? "mobile" : "desktop",
+          lastSeenAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+    } catch {
+      // telemetria é best-effort, não bloqueia
+    }
+  }, []);
 
   const clearSessionSync = useCallback(() => {
     if (heartbeatRef.current != null) {
       window.clearInterval(heartbeatRef.current);
       heartbeatRef.current = null;
+    }
+    if (activityIntervalRef.current != null) {
+      window.clearInterval(activityIntervalRef.current);
+      activityIntervalRef.current = null;
     }
     if (activeSessionUnsubRef.current) {
       activeSessionUnsubRef.current();
@@ -265,6 +289,12 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
         }
 
         attachSessionMonitor(userRef, clientSessionId);
+
+        // Ping de telemetria imediato + a cada 60s
+        void sendActivityPing(user.uid);
+        activityIntervalRef.current = window.setInterval(() => {
+          void sendActivityPing(user.uid);
+        }, 60_000);
 
         heartbeatRef.current = window.setInterval(() => {
           void runTransaction(db, async (tx) => {
