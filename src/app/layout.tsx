@@ -30,6 +30,41 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
+      <head>
+        {/*
+          Aplica o tema antes do primeiro paint para evitar "flash" entre claro/escuro.
+          - Paginas publicas (login, redefinir senha): SEMPRE modo claro
+          - Paginas privadas (apos login): respeita preferencia salva pelo aluno
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var path = window.location.pathname || "";
+                var isPublicPage =
+                  path === "/" ||
+                  path.includes("/aluno/entrar") ||
+                  path.includes("/aluno/redefinir-senha");
+
+                var theme = "light";
+                if (!isPublicPage) {
+                  var saved = localStorage.getItem("aq.aluno.theme");
+                  if (saved === "dark" || saved === "light") theme = saved;
+                }
+
+                document.documentElement.dataset.theme = theme;
+                if (theme === "dark") {
+                  document.documentElement.classList.add("dark");
+                } else {
+                  document.documentElement.classList.remove("dark");
+                }
+              } catch (e) {
+                document.documentElement.dataset.theme = "light";
+              }
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
