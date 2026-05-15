@@ -7,6 +7,7 @@ import AlunoTopHeader from "@/components/aluno/AlunoTopHeader";
 import { AlunoThemeProvider } from "@/components/aluno/AlunoThemeProvider";
 import { ToastProvider } from "@/components/ui/toast";
 import { PageHeaderProvider } from "@/components/aluno/AlunoPageHeaderContext";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import { X } from "lucide-react";
 
 export default function AlunoPrivateLayout({
@@ -34,7 +35,7 @@ export default function AlunoPrivateLayout({
                   <main className="min-w-0 flex-1 overflow-x-hidden">
                     <div className="px-4 sm:px-6 lg:px-10 py-8">
                       <div className="mx-auto w-full max-w-[1200px]">
-                        {children}
+                        <ErrorBoundary>{children}</ErrorBoundary>
                       </div>
                     </div>
                   </main>

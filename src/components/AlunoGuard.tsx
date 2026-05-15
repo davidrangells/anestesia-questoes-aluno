@@ -159,10 +159,11 @@ export default function AlunoGuard({ children }: { children: React.ReactNode }) 
       }
     );
 
-    // Fallback de segurança para garantir exclusão de sessão mesmo sem onSnapshot.
+    // Fallback de segurança para casos em que o onSnapshot falhar.
+    // 30s é suficiente — o onSnapshot já cobre o caso comum em tempo real.
     sessionCheckRef.current = window.setInterval(() => {
       verifyOwnership();
-    }, 3_000);
+    }, 30_000);
 
     const onWindowFocus = () => verifyOwnership();
     const onVisibilityChange = () => {
