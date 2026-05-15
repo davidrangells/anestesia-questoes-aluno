@@ -13,9 +13,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow read, write: if isOwner(uid);
 
-      // Dados de perfil salvos pelo painel admin
+      // Dados de perfil — admin escreve via SDK admin, dono lê e escreve seu proprio
       match /profile/{profileId} {
-        allow read: if isOwner(uid);
+        allow read, write: if isOwner(uid);
       }
 
       // Simulados do aluno

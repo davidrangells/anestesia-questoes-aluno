@@ -127,18 +127,48 @@ export default function PerfilClient() {
     setLoading(true);
     try {
       setEmail(u.email || "");
-      const snap = await getDoc(doc(db, "users", u.uid));
-      const d = (snap.exists() ? (snap.data() as ProfileData) : {}) || {};
-      setData(d);
-      setName(d.name || "");
-      setPhone(d.phone || "");
-      setAddressStreet(d.addressStreet || "");
-      setAddressNumber(d.addressNumber || "");
-      setAddressComplement(d.addressComplement || "");
-      setAddressNeighborhood(d.addressNeighborhood || "");
-      setAddressCity(d.addressCity || "");
-      setAddressState(d.addressState || "");
-      setAddressZip(d.addressZip || "");
+
+      // Lê dos dois lugares:
+      // 1. users/{uid}        — formato antigo (flat: addressStreet, etc.)
+      // 2. users/{uid}/profile/main — formato do admin (nested: address.street)
+      const [userSnap, profileSnap] = await Promise.all([
+        getDoc(doc(db, "users", u.uid)),
+        getDoc(doc(db, "users", u.uid, "profile", "main")),
+      ]);
+
+      const userData = (userSnap.exists() ? (userSnap.data() as ProfileData) : {}) || {};
+      const profileData = profileSnap.exists() ? (profileSnap.data() as Record<string, unknown>) : {};
+      const nestedAddr = (profileData.address as Record<string, unknown> | undefined) || {};
+
+      // Profile/main do admin tem prioridade quando preenchido; senão usa users/{uid}.
+      const pick = (adminVal: unknown, userVal: string | undefined): string => {
+        const a = typeof adminVal === "string" ? adminVal.trim() : "";
+        return a || (userVal || "");
+      };
+
+      const merged: ProfileData = {
+        ...userData,
+        name: pick(profileData.name, userData.name),
+        phone: pick(profileData.phone, userData.phone),
+        addressStreet: pick(nestedAddr.street, userData.addressStreet),
+        addressNumber: pick(nestedAddr.number, userData.addressNumber),
+        addressComplement: pick(nestedAddr.complement, userData.addressComplement),
+        addressNeighborhood: pick(nestedAddr.neighborhood, userData.addressNeighborhood),
+        addressCity: pick(nestedAddr.city, userData.addressCity),
+        addressState: pick(nestedAddr.state, userData.addressState),
+        addressZip: pick(nestedAddr.zipCode, userData.addressZip),
+      };
+
+      setData(merged);
+      setName(merged.name || "");
+      setPhone(merged.phone || "");
+      setAddressStreet(merged.addressStreet || "");
+      setAddressNumber(merged.addressNumber || "");
+      setAddressComplement(merged.addressComplement || "");
+      setAddressNeighborhood(merged.addressNeighborhood || "");
+      setAddressCity(merged.addressCity || "");
+      setAddressState(merged.addressState || "");
+      setAddressZip(merged.addressZip || "");
     } finally {
       setLoading(false);
     }
@@ -160,6 +190,7 @@ export default function PerfilClient() {
     if (!u) return;
     setSaving(true);
     try {
+      // Formato flat (compatibilidade com perfis antigos do portal)
       const payload: ProfileData = {
         name: name.trim(), phone: phone.trim(),
         addressStreet: addressStreet.trim(), addressNumber: addressNumber.trim(),
@@ -170,7 +201,29 @@ export default function PerfilClient() {
         createdAt: data.createdAt ? data.createdAt : serverTimestamp(),
         source: "user",
       };
-      await setDoc(doc(db, "users", u.uid), payload, { merge: true });
+
+      // Formato nested (compatibilidade com o admin / fonte canônica)
+      const profilePayload = {
+        name: name.trim() || null,
+        phone: phone.trim() || null,
+        address: {
+          street: addressStreet.trim() || null,
+          number: addressNumber.trim() || null,
+          complement: addressComplement.trim() || null,
+          neighborhood: addressNeighborhood.trim() || null,
+          city: addressCity.trim() || null,
+          state: addressState.trim() || null,
+          zipCode: addressZip.trim() || null,
+        },
+        source: "user",
+        updatedAt: serverTimestamp(),
+      };
+
+      await Promise.all([
+        setDoc(doc(db, "users", u.uid), payload, { merge: true }),
+        setDoc(doc(db, "users", u.uid, "profile", "main"), profilePayload, { merge: true }),
+      ]);
+
       setData((prev) => ({ ...prev, ...payload }));
       setEditing(false);
       toast.success("Perfil atualizado com sucesso!");
