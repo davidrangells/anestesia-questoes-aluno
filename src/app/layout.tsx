@@ -38,11 +38,11 @@ export default function RootLayout({
         <script
           dangerouslySetInnerHTML={{
             __html: `
+              // Sempre forca modo claro, ignorando preferencia salva no localStorage.
               try {
-                var saved = localStorage.getItem("aq.aluno.theme");
-                var theme = (saved === "dark" || saved === "light") ? saved : "light";
-                document.documentElement.dataset.theme = theme;
-                if (theme === "dark") document.documentElement.classList.add("dark");
+                document.documentElement.dataset.theme = "light";
+                document.documentElement.classList.remove("dark");
+                localStorage.setItem("aq.aluno.theme", "light");
               } catch (e) {
                 document.documentElement.dataset.theme = "light";
               }

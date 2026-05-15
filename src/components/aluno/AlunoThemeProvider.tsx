@@ -28,13 +28,9 @@ function applyTheme(theme: Theme) {
 }
 
 export function AlunoThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof window === "undefined") return "light";
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === "dark" || saved === "light") return saved;
-    // Padrão sempre claro (ignora preferencia do sistema operacional).
-    return "light";
-  });
+  // Sempre inicia em modo claro. O toggle ainda funciona durante a sessao,
+  // mas o tema nao persiste entre recarregamentos da pagina.
+  const [theme, setThemeState] = useState<Theme>("light");
 
   useEffect(() => {
     applyTheme(theme);
