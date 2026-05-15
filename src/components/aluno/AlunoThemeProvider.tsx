@@ -32,7 +32,8 @@ export function AlunoThemeProvider({ children }: { children: React.ReactNode }) 
     if (typeof window === "undefined") return "light";
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved === "dark" || saved === "light") return saved;
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    // Padrão sempre claro (ignora preferencia do sistema operacional).
+    return "light";
   });
 
   useEffect(() => {

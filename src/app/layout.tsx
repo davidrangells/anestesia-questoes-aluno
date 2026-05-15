@@ -30,6 +30,26 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR">
+      <head>
+        {/*
+          Aplica o tema antes do primeiro paint para evitar "flash" entre claro/escuro.
+          Lê do localStorage; se não houver preferencia salva, usa claro (ignora OS).
+        */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                var saved = localStorage.getItem("aq.aluno.theme");
+                var theme = (saved === "dark" || saved === "light") ? saved : "light";
+                document.documentElement.dataset.theme = theme;
+                if (theme === "dark") document.documentElement.classList.add("dark");
+              } catch (e) {
+                document.documentElement.dataset.theme = "light";
+              }
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
