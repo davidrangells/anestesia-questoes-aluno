@@ -128,7 +128,9 @@ export async function POST(req: NextRequest) {
 
     const actionCodeSettings = {
       url: `${APP_URL}/aluno/redefinir-senha`,
-      handleCodeInApp: false,
+      // true = link vai direto para nossa página com o oobCode na URL
+      // false = link passa pelo Firebase primeiro (página feia) e depois redireciona
+      handleCodeInApp: true,
     };
 
     // Gera o link de redefinição via Firebase Admin
