@@ -28,9 +28,14 @@ function applyTheme(theme: Theme) {
 }
 
 export function AlunoThemeProvider({ children }: { children: React.ReactNode }) {
-  // Sempre inicia em modo claro. O toggle ainda funciona durante a sessao,
-  // mas o tema nao persiste entre recarregamentos da pagina.
-  const [theme, setThemeState] = useState<Theme>("light");
+  // Nas paginas privadas, respeita a preferencia salva pelo aluno (toggle persiste).
+  // Padrao: claro. Login forca claro via script inline no <head>.
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof window === "undefined") return "light";
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "dark" || saved === "light") return saved;
+    return "light";
+  });
 
   useEffect(() => {
     applyTheme(theme);
