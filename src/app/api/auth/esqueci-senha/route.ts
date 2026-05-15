@@ -127,10 +127,13 @@ export async function POST(req: NextRequest) {
     }
 
     const actionCodeSettings = {
-      url: `${APP_URL}/aluno/redefinir-senha`,
-      // true = link vai direto para nossa página com o oobCode na URL
-      // false = link passa pelo Firebase primeiro (página feia) e depois redireciona
-      handleCodeInApp: true,
+      // URL para onde o Firebase redireciona DEPOIS de processar o reset.
+      // Para que o link vá DIRETO para nossa página (sem passar pelo Firebase),
+      // é necessário configurar o "Custom action URL" no Firebase Console:
+      //   Authentication > Templates > Password reset > (lápis) > Customize action URL
+      //   → https://app.anestesiaquestoes.com.br/aluno/redefinir-senha
+      url: `${APP_URL}/aluno/entrar`,
+      handleCodeInApp: false,
     };
 
     // Gera o link de redefinição via Firebase Admin
