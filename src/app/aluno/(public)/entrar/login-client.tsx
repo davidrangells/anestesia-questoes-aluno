@@ -57,7 +57,7 @@ export default function LoginClient() {
     setUiInfo("");
 
     const eMail = email.trim().toLowerCase();
-    const pwd = senha.trim();
+    const pwd = senha; // não fazer trim — senha pode ter espaços intencionais
     if (!eMail || !pwd) {
       setUiError("Preencha e-mail e senha.");
       return;

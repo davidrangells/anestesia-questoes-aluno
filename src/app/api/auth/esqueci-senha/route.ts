@@ -144,7 +144,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true });
   } catch (error) {
-    console.error("[esqueci-senha]", error);
+    // Loga só a mensagem — nunca o objeto completo (pode conter e-mail do usuário)
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("[esqueci-senha]", msg);
     // Sempre retorna ok=true para não revelar se o e-mail existe no sistema
     return NextResponse.json({ ok: true });
   }
