@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { confirmPasswordReset, verifyPasswordResetCode } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -9,7 +9,7 @@ import { CheckCircle, Eye, EyeOff, Lock, XCircle } from "lucide-react";
 
 type Stage = "loading" | "form" | "success" | "error";
 
-export default function RedefinirSenhaPage() {
+function RedefinirSenhaContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -216,5 +216,17 @@ export default function RedefinirSenhaPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function RedefinirSenhaPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[linear-gradient(180deg,#020817_0%,#071235_100%)] flex items-center justify-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+      </div>
+    }>
+      <RedefinirSenhaContent />
+    </Suspense>
   );
 }
