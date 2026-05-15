@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
@@ -188,7 +187,12 @@ export default function PerfilClient() {
     if (!userEmail) { toast.error("Seu usuário não tem e-mail."); return; }
     setSendingReset(true);
     try {
-      await sendPasswordResetEmail(auth, userEmail);
+      const res = await fetch("/api/auth/esqueci-senha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: userEmail }),
+      });
+      if (!res.ok) throw new Error();
       toast.success("Link de redefinição enviado para o seu e-mail!");
     } catch {
       toast.error("Não foi possível enviar o e-mail. Tente novamente.");

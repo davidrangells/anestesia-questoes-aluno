@@ -5,7 +5,6 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   signInWithEmailAndPassword,
-  sendPasswordResetEmail,
   signOut,
 } from "firebase/auth";
 import { auth } from "@/lib/firebase";
@@ -88,11 +87,15 @@ export default function LoginClient() {
 
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, eMail);
+      const res = await fetch("/api/auth/esqueci-senha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: eMail }),
+      });
+      if (!res.ok) throw new Error("Falha ao enviar e-mail.");
       setUiInfo("Te enviei um e-mail com o link para redefinir sua senha.");
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      setUiError(friendlyAuthError(code));
+    } catch {
+      setUiError("Não foi possível enviar o e-mail. Tente novamente em instantes.");
     } finally {
       setLoading(false);
     }
