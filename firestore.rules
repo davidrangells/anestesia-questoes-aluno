@@ -17,6 +17,11 @@ service cloud.firestore {
       match /sessions/{sessionId} {
         allow read, create, update, delete: if isOwner(uid);
       }
+
+      // Flashcards do aluno (revisao espacada)
+      match /flashcards/{cardId} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
     }
 
     // Assinatura/acesso
