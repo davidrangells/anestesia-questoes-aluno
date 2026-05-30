@@ -469,13 +469,12 @@ export default function EstudarClient() {
             transformStyle: "preserve-3d",
             transition: "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
             transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            position: "relative",
-            minHeight: "300px",
+            display: "grid",
           }}
         >
           {/* ── Front ── */}
           <div
-            style={{ backfaceVisibility: "hidden" }}
+            style={{ backfaceVisibility: "hidden", gridArea: "1 / 1" }}
             className="w-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
           >
             {/* Tags */}
@@ -520,8 +519,7 @@ export default function EstudarClient() {
             style={{
               backfaceVisibility: "hidden",
               transform: "rotateY(180deg)",
-              position: "absolute",
-              inset: 0,
+              gridArea: "1 / 1",
             }}
             className="w-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
           >
