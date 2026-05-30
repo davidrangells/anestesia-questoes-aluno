@@ -39,6 +39,9 @@ type QuestionBankDoc = {
   theme?: unknown;
   topic?: unknown;
   isActive?: unknown;
+  explanation?: unknown;
+  comentario?: unknown;
+  comment?: unknown;
 };
 
 function tsToMs(v: unknown): number {
@@ -53,6 +56,20 @@ function tsToMs(v: unknown): number {
 
 function safeStr(v: unknown) {
   return String(v ?? "").trim();
+}
+
+function hasUsableExplanation(q: QuestionBankDoc): boolean {
+  const raw = safeStr(q.explanation ?? q.comentario ?? q.comment ?? "");
+  if (!raw) return false;
+  const text = raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!text) return false;
+  if (text.includes("em breve")) return false;
+  return true;
 }
 
 function extractThemes(q: QuestionBankDoc): string[] {
@@ -93,6 +110,7 @@ export default function FlashcardsClient() {
         const allThemes = new Set<string>();
         qbSnap.docs.forEach((d) => {
           const q = { id: d.id, ...(d.data() as Omit<QuestionBankDoc, "id">) };
+          if (!hasUsableExplanation(q)) return;
           extractThemes(q).forEach((t) => allThemes.add(t));
         });
         setTemas(Array.from(allThemes).sort((a, b) => a.localeCompare(b, "pt-BR")));

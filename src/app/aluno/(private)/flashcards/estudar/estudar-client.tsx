@@ -113,6 +113,22 @@ function getExplanation(q: QuestionDoc): string {
   return safeStr(q.explanation ?? q.comentario ?? q.comment ?? "");
 }
 
+// Flashcards só fazem sentido com comentário/gabarito explicado.
+// Exclui questões sem comentário ou com placeholder ("em breve…").
+function hasUsableExplanation(q: QuestionDoc): boolean {
+  const raw = getExplanation(q);
+  if (!raw) return false;
+  const text = raw
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  if (!text) return false;
+  if (text.includes("em breve")) return false;
+  return true;
+}
+
 function extractThemes(q: QuestionDoc): string[] {
   const arr: string[] = [];
   if (Array.isArray(q.themes)) arr.push(...q.themes.map(safeStr).filter(Boolean));
@@ -204,7 +220,7 @@ export default function EstudarClient() {
         ...(d.data() as Omit<QuestionDoc, "id">),
       }));
 
-      const filtered = selectedTemas.length === 0
+      const byTheme = selectedTemas.length === 0
         ? allQuestions
         : allQuestions.filter((q) => {
             const qt = extractThemes(q);
@@ -212,6 +228,9 @@ export default function EstudarClient() {
               qt.some((t) => t.toLowerCase() === st.toLowerCase())
             );
           });
+
+      // Remove questões sem comentário disponível
+      const filtered = byTheme.filter(hasUsableExplanation);
 
       // Separate: due/new vs future
       const dueCards: CardItem[] = [];
