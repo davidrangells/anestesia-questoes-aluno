@@ -490,7 +490,7 @@ export default function EstudarClient() {
             {/* Question */}
             {statementHtml ? (
               <div
-                className="prose prose-sm max-w-none text-slate-800 dark:text-slate-200 dark:prose-invert"
+                className="text-[15px] leading-7 text-slate-900 dark:text-slate-100 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
                 dangerouslySetInnerHTML={{ __html: statementHtml }}
               />
             ) : (
@@ -547,7 +547,7 @@ export default function EstudarClient() {
                   Comentário
                 </div>
                 <div
-                  className="prose prose-sm max-w-none text-slate-700 dark:text-slate-300 dark:prose-invert"
+                  className="text-sm leading-6 text-slate-700 dark:text-slate-300 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
                   dangerouslySetInnerHTML={{ __html: explanationHtml }}
                 />
               </div>
