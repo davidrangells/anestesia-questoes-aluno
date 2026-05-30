@@ -389,7 +389,7 @@ export default function EstudarClient() {
             <Minus size={16} className="text-amber-600 dark:text-amber-400" />
             <div>
               <div className="text-lg font-black text-amber-700 dark:text-amber-300">{almost}</div>
-              <div className="text-[11px] font-bold text-amber-600/70 dark:text-amber-400/70">Difícil</div>
+              <div className="text-[11px] font-bold text-amber-600/70 dark:text-amber-400/70">Quase</div>
             </div>
           </div>
           <div className="flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 dark:border-rose-900/40 dark:bg-rose-950/30">
@@ -580,7 +580,7 @@ export default function EstudarClient() {
                   className="flex flex-col items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-center transition hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
                 >
                   <Minus size={20} className="text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Difícil</span>
+                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Quase</span>
                   <span className="text-[10px] text-amber-600/70 dark:text-amber-400/60">+1 dia</span>
                 </button>
 

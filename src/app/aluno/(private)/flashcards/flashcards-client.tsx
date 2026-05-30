@@ -20,6 +20,8 @@ import {
   CheckCircle2,
   Clock,
   Sparkles,
+  Minus,
+  XCircle,
 } from "lucide-react";
 
 function cn(...xs: Array<string | false | null | undefined>) {
@@ -174,6 +176,47 @@ export default function FlashcardsClient() {
         </div>
       </div>
 
+      {/* Como funciona (legenda) */}
+      <div className="rounded-2xl border border-indigo-200/60 bg-indigo-50/40 p-4 sm:p-5 dark:border-indigo-900/30 dark:bg-indigo-950/20">
+        <div className="flex items-center gap-2 text-sm font-black text-indigo-700 dark:text-indigo-300">
+          <Sparkles size={15} />
+          Como funciona
+        </div>
+        <div className="mt-2 space-y-1.5 text-sm text-indigo-700/80 dark:text-indigo-300/80">
+          <div>📖 <b>Frente</b>: leia o enunciado e tente responder mentalmente.</div>
+          <div>✅ <b>Verso</b>: confira a resposta correta e o comentário do gabarito.</div>
+          <div>🧠 <b>Avalie-se</b>: sua resposta define quando o card volta a aparecer (revisão espaçada).</div>
+        </div>
+
+        {/* Legenda dos botões */}
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border border-emerald-200 bg-white/60 px-3 py-2 dark:border-emerald-900/40 dark:bg-emerald-950/20">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 dark:text-emerald-300">
+              <CheckCircle2 size={13} /> Sabia
+            </div>
+            <div className="mt-0.5 text-[11px] leading-relaxed text-emerald-700/70 dark:text-emerald-300/70">
+              Acertou com facilidade. O card sobe de caixa e demora mais para reaparecer.
+            </div>
+          </div>
+          <div className="rounded-xl border border-amber-200 bg-white/60 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 dark:text-amber-300">
+              <Minus size={13} /> Quase
+            </div>
+            <div className="mt-0.5 text-[11px] leading-relaxed text-amber-700/70 dark:text-amber-300/70">
+              Lembrou, mas com esforço ou insegurança. O card fica na mesma caixa e volta no mesmo intervalo.
+            </div>
+          </div>
+          <div className="rounded-xl border border-rose-200 bg-white/60 px-3 py-2 dark:border-rose-900/40 dark:bg-rose-950/20">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-rose-600 dark:text-rose-300">
+              <XCircle size={13} /> Não sabia
+            </div>
+            <div className="mt-0.5 text-[11px] leading-relaxed text-rose-600/70 dark:text-rose-300/70">
+              Errou ou não lembrou. O card volta para o início e reaparece já amanhã.
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className={cn(
@@ -223,21 +266,6 @@ export default function FlashcardsClient() {
           <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">caixa 4 ou 5</div>
         </div>
       </div>
-
-      {/* Como funciona */}
-      {stats.studied === 0 && (
-        <div className="rounded-2xl border border-indigo-200/60 bg-indigo-50/50 p-5 dark:border-indigo-900/30 dark:bg-indigo-950/20">
-          <div className="flex items-center gap-2 text-sm font-black text-indigo-700 dark:text-indigo-300">
-            <Sparkles size={15} />
-            Como funciona a revisão espaçada
-          </div>
-          <div className="mt-2 space-y-1.5 text-sm text-indigo-700/80 dark:text-indigo-300/80">
-            <div>📖 <b>Frente</b>: você lê o enunciado da questão e tenta responder mentalmente.</div>
-            <div>✅ <b>Verso</b>: veja a resposta correta e o comentário do gabarito.</div>
-            <div>🧠 <b>Avalie-se</b>: "Sabia", "Difícil" ou "Não sabia" — o sistema ajusta quando você vai ver esse card de novo.</div>
-          </div>
-        </div>
-      )}
 
       {/* Filtro de temas */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800/80 dark:bg-slate-900/50">
