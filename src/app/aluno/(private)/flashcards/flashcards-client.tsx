@@ -234,7 +234,7 @@ export default function FlashcardsClient() {
           <div className="mt-2 space-y-1.5 text-sm text-indigo-700/80 dark:text-indigo-300/80">
             <div>📖 <b>Frente</b>: você lê o enunciado da questão e tenta responder mentalmente.</div>
             <div>✅ <b>Verso</b>: veja a resposta correta e o comentário do gabarito.</div>
-            <div>🧠 <b>Avalie-se</b>: "Sabia", "Quase" ou "Não sabia" — o sistema ajusta quando você vai ver esse card de novo.</div>
+            <div>🧠 <b>Avalie-se</b>: "Sabia", "Difícil" ou "Não sabia" — o sistema ajusta quando você vai ver esse card de novo.</div>
           </div>
         </div>
       )}
