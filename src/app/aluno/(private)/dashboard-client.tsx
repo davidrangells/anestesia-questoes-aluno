@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers } from "lucide-react";
 
 type SessionDoc = {
   id: string;
@@ -245,6 +245,7 @@ export default function DashboardClient() {
   const [sessions, setSessions] = useState<SessionDoc[]>([]);
   const [themePerformance, setThemePerformance] = useState<ThemePerformance[]>([]);
   const [firestoreName, setFirestoreName] = useState("");
+  const [flashcardStats, setFlashcardStats] = useState({ studied: 0, due: 0, mastered: 0 });
 
   async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
@@ -261,15 +262,26 @@ export default function DashboardClient() {
       const ref = collection(db, "users", u.uid, "sessions");
       const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
-      const [snap, userSnap] = await Promise.all([
+      const [snap, userSnap, fcSnap] = await Promise.all([
         getDocs(qy),
         getDoc(doc(db, "users", u.uid)),
+        getDocs(collection(db, "users", u.uid, "flashcards")),
       ]);
 
       if (userSnap.exists()) {
         const userData = userSnap.data() as { name?: string };
         const rawName = (userData.name || "").trim();
         if (rawName) setFirestoreName(rawName.split(" ")[0]);
+      }
+
+      {
+        const fcDocs = fcSnap.docs.map((d) => d.data() as { box?: number; nextReview?: unknown });
+        const nowMs = Date.now();
+        setFlashcardStats({
+          studied: fcDocs.length,
+          due: fcDocs.filter((fc) => tsToMs(fc.nextReview) <= nowMs).length,
+          mastered: fcDocs.filter((fc) => (fc.box ?? 1) >= 4).length,
+        });
       }
 
       const items: SessionDoc[] = snap.docs.map((docSnap) => ({
@@ -549,6 +561,48 @@ export default function DashboardClient() {
           <div className="mt-1 text-xs text-slate-500 dark:text-slate-500">no total</div>
         </div>
       </div>
+
+      {/* FLASHCARDS */}
+      <button
+        type="button"
+        onClick={() => router.push("/aluno/flashcards")}
+        className="flex w-full flex-col gap-4 rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 to-blue-50 p-5 text-left transition hover:border-indigo-300 sm:flex-row sm:items-center sm:justify-between dark:border-indigo-900/40 dark:from-indigo-950/30 dark:to-blue-950/20 dark:hover:border-indigo-700"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-blue-500 text-white shadow-[0_10px_25px_rgba(99,102,241,0.35)]">
+            <Layers size={20} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-black text-slate-900 dark:text-slate-100">Flashcards</div>
+              <span className="rounded-full bg-gradient-to-r from-indigo-500 to-blue-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
+                Novo
+              </span>
+            </div>
+            <div className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
+              {flashcardStats.studied > 0 ? (
+                <span>
+                  {flashcardStats.due > 0 && (
+                    <b className="text-indigo-700 dark:text-indigo-300">{flashcardStats.due} para revisar hoje</b>
+                  )}
+                  {flashcardStats.due > 0 ? " · " : ""}
+                  {flashcardStats.studied} estudados · {flashcardStats.mastered} dominados
+                </span>
+              ) : (
+                "Revisão espaçada com as questões do banco — memorize mais, em menos tempo."
+              )}
+            </div>
+          </div>
+        </div>
+        <span className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white sm:w-auto dark:bg-gradient-to-r dark:from-blue-500 dark:to-indigo-500">
+          <Zap size={14} />
+          {flashcardStats.due > 0
+            ? `Revisar ${flashcardStats.due}`
+            : flashcardStats.studied > 0
+            ? "Continuar"
+            : "Conhecer"}
+        </span>
+      </button>
 
       {/* RESUMO SEMANA + RECOMENDAÇÃO */}
       <div className="grid gap-4 lg:grid-cols-2">
