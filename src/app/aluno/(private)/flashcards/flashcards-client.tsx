@@ -78,7 +78,6 @@ export default function FlashcardsClient() {
 
   // Flashcard stats from Firestore
   const [flashcardDocs, setFlashcardDocs] = useState<FlashcardDoc[]>([]);
-  const [totalQuestions, setTotalQuestions] = useState(0);
 
   useEffect(() => {
     const run = async () => {
@@ -97,7 +96,6 @@ export default function FlashcardsClient() {
           extractThemes(q).forEach((t) => allThemes.add(t));
         });
         setTemas(Array.from(allThemes).sort((a, b) => a.localeCompare(b, "pt-BR")));
-        setTotalQuestions(qbSnap.size);
 
         setFlashcardDocs(fcSnap.docs.map((d) => d.data() as FlashcardDoc));
       } finally {
@@ -136,8 +134,8 @@ export default function FlashcardsClient() {
     return (
       <div className="space-y-4">
         <div className="h-8 w-48 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />)}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {[...Array(3)].map((_, i) => <div key={i} className="h-24 animate-pulse rounded-2xl bg-slate-200 dark:bg-slate-800" />)}
         </div>
         <SkeletonCard lines={3} />
       </div>
@@ -145,7 +143,7 @@ export default function FlashcardsClient() {
   }
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6">
 
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -159,12 +157,7 @@ export default function FlashcardsClient() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-slate-900/50">
-          <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Banco</div>
-          <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{totalQuestions}</div>
-          <div className="mt-0.5 text-xs text-slate-500 dark:text-slate-500">questões disponíveis</div>
-        </div>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className={cn(
           "rounded-2xl border px-4 py-4",
           stats.due > 0
@@ -291,32 +284,30 @@ export default function FlashcardsClient() {
         )}
       </div>
 
-      {/* Footer fixo */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur dark:border-slate-800/80 dark:bg-[#030b21]/95">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <div className="text-sm text-slate-600 dark:text-slate-400">
-            {selectedTemas.length === 0
-              ? <span>Todos os temas · <b className="text-slate-900 dark:text-slate-100">{totalQuestions}</b> questões</span>
-              : <span><b className="text-slate-900 dark:text-slate-100">{selectedTemas.length}</b> tema{selectedTemas.length > 1 ? "s" : ""} selecionado{selectedTemas.length > 1 ? "s" : ""}</span>
-            }
-            {stats.due > 0 && (
-              <span className="ml-2 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400">
-                {stats.due} para revisar hoje
-              </span>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {hasFilters && (
-              <Button variant="secondary" onClick={() => setSelectedTemas([])} className="gap-1.5">
-                <X size={13} />
-                Limpar
-              </Button>
-            )}
-            <Button onClick={onStart} className="gap-2">
-              <Zap size={14} />
-              Estudar agora
+      {/* Ações */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-sm text-slate-600 dark:text-slate-400">
+          {selectedTemas.length === 0
+            ? <span>Todos os temas</span>
+            : <span><b className="text-slate-900 dark:text-slate-100">{selectedTemas.length}</b> tema{selectedTemas.length > 1 ? "s" : ""} selecionado{selectedTemas.length > 1 ? "s" : ""}</span>
+          }
+          {stats.due > 0 && (
+            <span className="ml-2 rounded-full border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-bold text-indigo-600 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-400">
+              {stats.due} para revisar hoje
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {hasFilters && (
+            <Button variant="secondary" onClick={() => setSelectedTemas([])} className="gap-1.5">
+              <X size={13} />
+              Limpar
             </Button>
-          </div>
+          )}
+          <Button onClick={onStart} className="gap-2">
+            <Zap size={14} />
+            Estudar agora
+          </Button>
         </div>
       </div>
     </div>
