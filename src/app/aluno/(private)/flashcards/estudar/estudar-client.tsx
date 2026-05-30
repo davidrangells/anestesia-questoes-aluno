@@ -462,127 +462,122 @@ export default function EstudarClient() {
         </div>
       </div>
 
-      {/* ── CARD FLIP ─────────────────────────────────────────────────── */}
+      {/* ── CARD ──────────────────────────────────────────────────────── */}
+      <style>{`
+        @keyframes fc-flip-in {
+          0%   { opacity: 0; transform: rotateY(-12deg) scale(0.985); }
+          100% { opacity: 1; transform: rotateY(0deg) scale(1); }
+        }
+      `}</style>
       <div style={{ perspective: "1200px" }}>
         <div
-          style={{
-            transformStyle: "preserve-3d",
-            transition: "transform 0.45s cubic-bezier(0.4, 0, 0.2, 1)",
-            transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)",
-            display: "grid",
-          }}
+          key={flipped ? "back" : "front"}
+          style={{ animation: "fc-flip-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) both" }}
+          className="w-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
         >
-          {/* ── Front ── */}
-          <div
-            style={{ backfaceVisibility: "hidden", gridArea: "1 / 1" }}
-            className="w-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
-          >
-            {/* Tags */}
-            <div className="mb-4 flex flex-wrap gap-1.5">
-              {themes.slice(0, 3).map((t) => (
-                <span key={t} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                  {t}
-                </span>
-              ))}
-            </div>
-
-            {/* Question */}
-            {statementHtml ? (
-              <div
-                className="text-[15px] leading-7 text-slate-900 dark:text-slate-100 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
-                dangerouslySetInnerHTML={{ __html: statementHtml }}
-              />
-            ) : (
-              <div className="text-sm text-slate-400 italic">Sem enunciado disponível.</div>
-            )}
-
-            {/* Question image */}
-            {question.imageUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={question.imageUrl} alt="Imagem da questão" className="mt-4 max-h-48 rounded-xl object-contain" />
-            )}
-
-            {/* Flip hint */}
-            <div className="mt-6 flex justify-center">
-              <button
-                onClick={() => setFlipped(true)}
-                className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
-              >
-                <Eye size={15} />
-                Ver resposta
-              </button>
-            </div>
-          </div>
-
-          {/* ── Back ── */}
-          <div
-            style={{
-              backfaceVisibility: "hidden",
-              transform: "rotateY(180deg)",
-              gridArea: "1 / 1",
-            }}
-            className="w-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
-          >
-            {/* Correct answer */}
-            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-1">
-                Resposta correta
+          {!flipped ? (
+            /* ── Front ── */
+            <>
+              {/* Tags */}
+              <div className="mb-4 flex flex-wrap gap-1.5">
+                {themes.slice(0, 3).map((t) => (
+                  <span key={t} className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                    {t}
+                  </span>
+                ))}
               </div>
-              <div className="flex items-start gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-xs font-black text-white">
-                  {correctOption.label || "?"}
-                </span>
-                <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-                  {correctOption.text || <span className="italic opacity-60">—</span>}
-                </div>
-              </div>
-            </div>
 
-            {/* Explanation */}
-            {explanationHtml && (
-              <div className="mb-4">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
-                  Comentário
-                </div>
+              {/* Question */}
+              {statementHtml ? (
                 <div
-                  className="text-sm leading-6 text-slate-700 dark:text-slate-300 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
-                  dangerouslySetInnerHTML={{ __html: explanationHtml }}
+                  className="text-[15px] leading-7 text-slate-900 dark:text-slate-100 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
+                  dangerouslySetInnerHTML={{ __html: statementHtml }}
                 />
+              ) : (
+                <div className="text-sm text-slate-400 italic">Sem enunciado disponível.</div>
+              )}
+
+              {/* Question image */}
+              {question.imageUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={question.imageUrl} alt="Imagem da questão" className="mt-4 max-h-48 rounded-xl object-contain" />
+              )}
+
+              {/* Flip hint */}
+              <div className="mt-6 flex justify-center">
+                <button
+                  onClick={() => setFlipped(true)}
+                  className="flex items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-2.5 text-sm font-semibold text-slate-600 transition hover:border-slate-300 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  <Eye size={15} />
+                  Ver resposta
+                </button>
               </div>
-            )}
+            </>
+          ) : (
+            /* ── Back ── */
+            <>
+              {/* Correct answer */}
+              <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-1">
+                  Resposta correta
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-xs font-black text-white">
+                    {correctOption.label || "?"}
+                  </span>
+                  <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                    {correctOption.text || <span className="italic opacity-60">—</span>}
+                  </div>
+                </div>
+              </div>
 
-            {/* Rating buttons */}
-            <div className="mt-5 grid grid-cols-3 gap-2">
-              <button
-                onClick={() => void rate("didnt_know")}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-center transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
-              >
-                <XCircle size={20} className="text-rose-500 dark:text-rose-400" />
-                <span className="text-xs font-bold text-rose-700 dark:text-rose-300">Não sabia</span>
-                <span className="text-[10px] text-rose-500/70 dark:text-rose-400/60">amanhã</span>
-              </button>
+              {/* Explanation */}
+              {explanationHtml && (
+                <div className="mb-4">
+                  <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
+                    Comentário
+                  </div>
+                  <div
+                    className="text-sm leading-6 text-slate-700 dark:text-slate-300 [&_p]:my-1 [&_ul]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
+                    dangerouslySetInnerHTML={{ __html: explanationHtml }}
+                  />
+                </div>
+              )}
 
-              <button
-                onClick={() => void rate("almost")}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-center transition hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
-              >
-                <Minus size={20} className="text-amber-600 dark:text-amber-400" />
-                <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Quase</span>
-                <span className="text-[10px] text-amber-600/70 dark:text-amber-400/60">+1 dia</span>
-              </button>
+              {/* Rating buttons */}
+              <div className="mt-5 grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => void rate("didnt_know")}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-center transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
+                >
+                  <XCircle size={20} className="text-rose-500 dark:text-rose-400" />
+                  <span className="text-xs font-bold text-rose-700 dark:text-rose-300">Não sabia</span>
+                  <span className="text-[10px] text-rose-500/70 dark:text-rose-400/60">amanhã</span>
+                </button>
 
-              <button
-                onClick={() => void rate("knew")}
-                className="flex flex-col items-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-center transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
-              >
-                <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
-                <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Sabia</span>
-                <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/60">
-                  +{BOX_DAYS[Math.min((state?.box ?? 0) + 1, 5)]}d
-                </span>
-              </button>
-            </div>
-          </div>
+                <button
+                  onClick={() => void rate("almost")}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-center transition hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+                >
+                  <Minus size={20} className="text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Quase</span>
+                  <span className="text-[10px] text-amber-600/70 dark:text-amber-400/60">+1 dia</span>
+                </button>
+
+                <button
+                  onClick={() => void rate("knew")}
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-center transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
+                >
+                  <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Sabia</span>
+                  <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/60">
+                    +{BOX_DAYS[Math.min((state?.box ?? 0) + 1, 5)]}d
+                  </span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
