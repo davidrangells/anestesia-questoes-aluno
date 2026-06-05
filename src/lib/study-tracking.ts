@@ -38,6 +38,18 @@ function plainSnippet(raw: string, max = 220): string {
   return text.length > max ? text.slice(0, max).trimEnd() + "…" : text;
 }
 
+/** Data local no formato YYYY-MM-DD (sem fuso UTC). */
+export function dayKey(d = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function yesterdayKey(): string {
+  return dayKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
+}
+
 export type RecordAnswerInput = {
   uid: string;
   question: RawQuestion;
@@ -57,19 +69,35 @@ export async function recordAnswer(input: RecordAnswerInput): Promise<void> {
 
   const temas = extractThemes(question);
 
-  // 1) Estatísticas agregadas (incrementos, sem leitura prévia)
+  // 1) Estatísticas agregadas + streak
   try {
     const statsRef = doc(db, "users", uid, "meta", "stats");
+    const statsSnap = await getDoc(statsRef);
+    const prev = statsSnap.exists() ? (statsSnap.data() as Record<string, unknown>) : {};
+
+    // Streak (ofensiva): conta dias seguidos com pelo menos uma resposta.
+    const today = dayKey();
+    const lastDay = safeStr(prev.streakLastDay);
+    let streakCount = Number(prev.streakCount ?? 0);
+    if (lastDay !== today) {
+      streakCount = lastDay === yesterdayKey() ? streakCount + 1 : 1;
+    }
+    const longestStreak = Math.max(Number(prev.longestStreak ?? 0), streakCount);
+
     const byTheme: Record<string, { total: ReturnType<typeof increment>; correct: ReturnType<typeof increment> }> = {};
     for (const t of temas) {
       byTheme[t] = { total: increment(1), correct: increment(isCorrect ? 1 : 0) };
     }
+
     await setDoc(
       statsRef,
       {
         totalAnswered: increment(1),
         totalCorrect: increment(isCorrect ? 1 : 0),
         ...(temas.length ? { byTheme } : {}),
+        streakCount,
+        streakLastDay: today,
+        longestStreak,
         lastAnswerAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },

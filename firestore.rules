@@ -37,6 +37,11 @@ service cloud.firestore {
       match /meta/{docId} {
         allow read, create, update, delete: if isOwner(uid);
       }
+
+      // Questao do dia
+      match /dailyQuestions/{dateKey} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
     }
 
     // Assinatura/acesso
