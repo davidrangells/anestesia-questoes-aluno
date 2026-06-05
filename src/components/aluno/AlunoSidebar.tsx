@@ -11,6 +11,7 @@ import {
   Home,
   Brain,
   Layers,
+  NotebookPen,
   CreditCard,
   User,
   LogOut,
@@ -35,12 +36,14 @@ function Item({
   Icon,
   onNavigate,
   disabled,
+  badge,
 }: {
   href: string;
   label: string;
   Icon: LucideIcon;
   onNavigate?: () => void;
   disabled?: boolean;
+  badge?: string;
 }) {
   const pathname = usePathname();
   const active = isActivePath(pathname, href);
@@ -76,6 +79,18 @@ function Item({
         )}
       />
       <span className="truncate">{label}</span>
+      {badge && (
+        <span
+          className={cn(
+            "ml-auto shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+            active
+              ? "bg-white/20 text-white"
+              : "bg-gradient-to-r from-blue-500 to-indigo-500 text-white"
+          )}
+        >
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -141,7 +156,8 @@ export default function AlunoSidebar({
         </div>
         <Item href="/aluno" label="Início" Icon={Home} onNavigate={onNavigate} />
         <Item href="/aluno/simulados" label="Simulados" Icon={Brain} onNavigate={onNavigate} />
-        <Item href="/aluno/flashcards" label="Flashcards" Icon={Layers} onNavigate={onNavigate} />
+        <Item href="/aluno/flashcards" label="Flashcards" Icon={Layers} onNavigate={onNavigate} badge="Novo" />
+        <Item href="/aluno/caderno" label="Caderno de Erros" Icon={NotebookPen} onNavigate={onNavigate} badge="Novo" />
         <Item href="/aluno/assinatura" label="Assinatura" Icon={CreditCard} onNavigate={onNavigate} />
         <Item href="/aluno/perfil" label="Perfil" Icon={User} onNavigate={onNavigate} />
       </nav>

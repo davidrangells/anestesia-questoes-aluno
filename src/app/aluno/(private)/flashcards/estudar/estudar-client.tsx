@@ -492,7 +492,7 @@ export default function EstudarClient() {
         <div
           key={flipped ? "back" : "front"}
           style={{ animation: "fc-flip-in 0.4s cubic-bezier(0.4, 0, 0.2, 1) both" }}
-          className="w-full rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
+          className="w-full rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
         >
           {!flipped ? (
             /* ── Front ── */
@@ -568,28 +568,28 @@ export default function EstudarClient() {
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => void rate("didnt_know")}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-3 py-3 text-center transition hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-rose-200 bg-rose-50 px-1.5 py-3 text-center transition hover:bg-rose-100 sm:px-3 dark:border-rose-900/40 dark:bg-rose-950/30 dark:hover:bg-rose-950/50"
                 >
                   <XCircle size={20} className="text-rose-500 dark:text-rose-400" />
-                  <span className="text-xs font-bold text-rose-700 dark:text-rose-300">Não sabia</span>
+                  <span className="text-[11px] font-bold text-rose-700 sm:text-xs dark:text-rose-300">Não sabia</span>
                   <span className="text-[10px] text-rose-500/70 dark:text-rose-400/60">amanhã</span>
                 </button>
 
                 <button
                   onClick={() => void rate("almost")}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 text-center transition hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-amber-200 bg-amber-50 px-1.5 py-3 text-center transition hover:bg-amber-100 sm:px-3 dark:border-amber-900/40 dark:bg-amber-950/30 dark:hover:bg-amber-950/50"
                 >
                   <Minus size={20} className="text-amber-600 dark:text-amber-400" />
-                  <span className="text-xs font-bold text-amber-700 dark:text-amber-300">Quase</span>
+                  <span className="text-[11px] font-bold text-amber-700 sm:text-xs dark:text-amber-300">Quase</span>
                   <span className="text-[10px] text-amber-600/70 dark:text-amber-400/60">+1 dia</span>
                 </button>
 
                 <button
                   onClick={() => void rate("knew")}
-                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-center transition hover:bg-emerald-100 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
+                  className="flex flex-col items-center gap-1.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-1.5 py-3 text-center transition hover:bg-emerald-100 sm:px-3 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50"
                 >
                   <CheckCircle2 size={20} className="text-emerald-600 dark:text-emerald-400" />
-                  <span className="text-xs font-bold text-emerald-700 dark:text-emerald-300">Sabia</span>
+                  <span className="text-[11px] font-bold text-emerald-700 sm:text-xs dark:text-emerald-300">Sabia</span>
                   <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/60">
                     +{BOX_DAYS[Math.min((state?.box ?? 0) + 1, 5)]}d
                   </span>
