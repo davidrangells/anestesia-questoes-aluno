@@ -8,7 +8,8 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays } from "lucide-react";
+import { getDailyStatus } from "@/lib/daily";
 
 type SessionDoc = {
   id: string;
@@ -246,6 +247,8 @@ export default function DashboardClient() {
   const [themePerformance, setThemePerformance] = useState<ThemePerformance[]>([]);
   const [firestoreName, setFirestoreName] = useState("");
   const [flashcardStats, setFlashcardStats] = useState({ studied: 0, due: 0, mastered: 0 });
+  const [streakCount, setStreakCount] = useState(0);
+  const [daily, setDaily] = useState<{ exists: boolean; answered: boolean } | null>(null);
 
   async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
@@ -262,10 +265,12 @@ export default function DashboardClient() {
       const ref = collection(db, "users", u.uid, "sessions");
       const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
-      const [snap, userSnap, fcSnap] = await Promise.all([
+      const [snap, userSnap, fcSnap, statsSnap, dailyStatus] = await Promise.all([
         getDocs(qy),
         getDoc(doc(db, "users", u.uid)),
         getDocs(collection(db, "users", u.uid, "flashcards")),
+        getDoc(doc(db, "users", u.uid, "meta", "stats")),
+        getDailyStatus(u.uid),
       ]);
 
       if (userSnap.exists()) {
@@ -273,6 +278,12 @@ export default function DashboardClient() {
         const rawName = (userData.name || "").trim();
         if (rawName) setFirestoreName(rawName.split(" ")[0]);
       }
+
+      if (statsSnap.exists()) {
+        const s = statsSnap.data() as { streakCount?: number };
+        setStreakCount(Number(s.streakCount ?? 0));
+      }
+      setDaily(dailyStatus ? { exists: dailyStatus.exists, answered: dailyStatus.answered } : null);
 
       {
         const fcDocs = fcSnap.docs.map((d) => d.data() as { box?: number; nextReview?: unknown });
@@ -522,7 +533,15 @@ export default function DashboardClient() {
           <div className="mt-0.5 text-2xl font-black text-slate-900 dark:text-slate-100">
             {firstName ? `${greeting}, ${firstName}! 👋` : `${greeting}! 👋`}
           </div>
-          <div className="mt-1 text-sm text-slate-500 dark:text-slate-400">{lastStudyLabel}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
+            <span>{lastStudyLabel}</span>
+            {streakCount > 0 && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2 py-0.5 text-xs font-bold text-orange-600 dark:border-orange-900/40 dark:bg-orange-950/30 dark:text-orange-400">
+                <Flame size={12} />
+                {streakCount} {streakCount === 1 ? "dia" : "dias"} seguidos
+              </span>
+            )}
+          </div>
         </div>
         <Button className="mt-3 w-full gap-2 sm:mt-0 sm:w-auto" onClick={() => router.push(inProgressSession ? `/aluno/simulados/${inProgressSession.id}` : "/aluno/simulados/novo")}>
           <Zap size={14} />
@@ -561,6 +580,37 @@ export default function DashboardClient() {
           <div className="mt-1 text-xs text-slate-500 dark:text-slate-500">no total</div>
         </div>
       </div>
+
+      {/* QUESTÃO DO DIA */}
+      <button
+        type="button"
+        onClick={() => router.push("/aluno/questao-do-dia")}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-amber-200/70 bg-gradient-to-br from-amber-50 to-orange-50 p-5 text-left transition hover:border-amber-300 dark:border-amber-900/40 dark:from-amber-950/20 dark:to-orange-950/10 dark:hover:border-amber-700"
+      >
+        <div className="flex items-start gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-[0_10px_25px_rgba(245,158,11,0.35)]">
+            <CalendarDays size={20} />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div className="text-lg font-black text-slate-900 dark:text-slate-100">Questão do dia</div>
+              {daily?.answered && (
+                <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                  Feita ✓
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
+              {daily?.answered
+                ? "Você já respondeu hoje. Volte amanhã para uma nova!"
+                : "Teste seus conhecimentos com a questão de hoje."}
+            </div>
+          </div>
+        </div>
+        <span className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-amber-700 sm:inline-flex dark:text-amber-400">
+          {daily?.answered ? "Ver" : "Responder"} <ChevronRight size={16} />
+        </span>
+      </button>
 
       {/* FLASHCARDS */}
       <button
