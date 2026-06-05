@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import {
+  addDoc,
   collection,
   doc,
   getDoc,
@@ -22,7 +23,10 @@ import {
   RotateCcw,
   Search,
   Sparkles,
+  Zap,
 } from "lucide-react";
+
+const MAX_REVIEW_QUESTIONS = 30;
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -121,6 +125,7 @@ export default function CadernoClient() {
   const [tab, setTab] = useState<Tab>("pending");
   const [query, setQuery] = useState("");
   const [selectedTema, setSelectedTema] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     const u = auth.currentUser;
@@ -188,6 +193,50 @@ export default function CadernoClient() {
     } catch (e) {
       console.error(e);
       void load();
+    }
+  }
+
+  async function createReviewSimulado() {
+    const u = auth.currentUser;
+    if (!u || creating) return;
+    const ids = filtered.map((i) => i.questionId).filter(Boolean);
+    if (!ids.length) return;
+
+    // Embaralha e limita
+    const shuffled = [...ids];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    const questionIds = shuffled.slice(0, MAX_REVIEW_QUESTIONS);
+
+    setCreating(true);
+    try {
+      const ref = await addDoc(collection(db, "users", u.uid, "sessions"), {
+        title: "Revisão de erros",
+        titleDisplay: "Revisão de erros",
+        kind: "error_review",
+        status: "in_progress",
+        filters: {
+          provas: [],
+          provaIds: [],
+          niveis: [],
+          temas: selectedTema ? [selectedTema] : [],
+        },
+        questionIds,
+        totalQuestions: questionIds.length,
+        currentIndex: 0,
+        answeredCount: 0,
+        correctCount: 0,
+        wrongCount: 0,
+        scorePercent: 0,
+        updatedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+      router.push(`/aluno/simulados/${ref.id}`);
+    } catch (e) {
+      console.error(e);
+      setCreating(false);
     }
   }
 
@@ -317,6 +366,23 @@ export default function CadernoClient() {
               </div>
             )}
           </div>
+
+          {/* Refazer como simulado */}
+          {tab === "pending" && filtered.length > 0 && (
+            <div className="flex flex-col gap-3 rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50 to-blue-50 p-4 sm:flex-row sm:items-center sm:justify-between dark:border-indigo-900/40 dark:from-indigo-950/30 dark:to-blue-950/20">
+              <div className="text-sm text-slate-600 dark:text-slate-300">
+                Treine com um simulado montado só com seus erros
+                {selectedTema ? <> de <b className="text-slate-900 dark:text-slate-100">{selectedTema}</b></> : null}.
+                {filtered.length > MAX_REVIEW_QUESTIONS && (
+                  <span className="text-slate-500 dark:text-slate-400"> {" "}(usaremos {MAX_REVIEW_QUESTIONS} aleatórias de {filtered.length})</span>
+                )}
+              </div>
+              <Button onClick={createReviewSimulado} disabled={creating} className="w-full gap-2 sm:w-auto">
+                <Zap size={14} />
+                {creating ? "Criando…" : `Refazer ${Math.min(filtered.length, MAX_REVIEW_QUESTIONS)} ${filtered.length === 1 ? "erro" : "erros"}`}
+              </Button>
+            </div>
+          )}
 
           {/* Lista */}
           {filtered.length === 0 ? (
