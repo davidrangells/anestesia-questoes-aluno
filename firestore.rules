@@ -22,6 +22,16 @@ service cloud.firestore {
       match /flashcards/{cardId} {
         allow read, create, update, delete: if isOwner(uid);
       }
+
+      // Caderno de erros (questoes erradas para revisao)
+      match /errorNotebook/{questionId} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
+
+      // Metadados do aluno (stats agregadas, configuracoes, etc.)
+      match /meta/{docId} {
+        allow read, create, update, delete: if isOwner(uid);
+      }
     }
 
     // Assinatura/acesso
