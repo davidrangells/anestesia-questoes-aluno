@@ -498,7 +498,7 @@ export default function EstudarClient() {
           className="w-full rounded-2xl border border-slate-200 bg-white p-5 sm:p-6 dark:border-slate-800/80 dark:bg-slate-900/60"
         >
           {!flipped ? (
-            /* ── Front ── */
+            /* ── Front: enunciado + alternativas sem gabarito ── */
             <>
               {/* Tags */}
               <div className="mb-4 flex flex-wrap gap-1.5">
@@ -509,23 +509,40 @@ export default function EstudarClient() {
                 ))}
               </div>
 
-              {/* Question */}
+              {/* Enunciado */}
               {statementHtml ? (
                 <div
                   className="text-[15px] leading-7 text-slate-900 dark:text-slate-100 [&_p]:my-2 [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
                   dangerouslySetInnerHTML={{ __html: statementHtml }}
                 />
               ) : (
-                <div className="text-sm text-slate-400 italic">Sem enunciado disponível.</div>
+                <div className="text-sm italic text-slate-400">Sem enunciado disponível.</div>
               )}
 
-              {/* Question image */}
+              {/* Imagem */}
               {question.imageUrl && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={question.imageUrl} alt="Imagem da questão" className="mt-4 max-h-48 rounded-xl object-contain" />
               )}
 
-              {/* Flip hint */}
+              {/* Alternativas — exibidas sem destaque para o aluno pensar */}
+              {question.options && question.options.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  {question.options.map((opt) => (
+                    <div
+                      key={opt.id}
+                      className="flex items-start gap-2.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50"
+                    >
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-slate-300 text-[11px] font-black text-white dark:bg-slate-600">
+                        {safeStr(opt.id).toUpperCase()}
+                      </span>
+                      <span className="text-sm text-slate-700 dark:text-slate-300">{safeStr(opt.text) || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Botão ver resposta */}
               <div className="mt-6 flex justify-center">
                 <button
                   onClick={() => setFlipped(true)}
@@ -537,24 +554,61 @@ export default function EstudarClient() {
               </div>
             </>
           ) : (
-            /* ── Back ── */
+            /* ── Back: alternativas com gabarito + comentário + avaliação ── */
             <>
-              {/* Correct answer */}
-              <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
-                <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-1">
-                  Resposta correta
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-xs font-black text-white">
-                    {correctOption.label || "?"}
-                  </span>
-                  <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
-                    {correctOption.text || <span className="italic opacity-60">—</span>}
+              {/* Alternativas com gabarito destacado */}
+              <div className="mb-4 space-y-2">
+                {question.options && question.options.length > 0 ? (
+                  question.options.map((opt) => {
+                    const oid = safeStr(opt.id).toUpperCase();
+                    const isCorrect = oid === (correctOption.label || "").toUpperCase();
+                    return (
+                      <div
+                        key={oid}
+                        className={cn(
+                          "flex items-start gap-2.5 rounded-xl border px-3 py-2.5",
+                          isCorrect
+                            ? "border-emerald-200 bg-emerald-50 dark:border-emerald-900/40 dark:bg-emerald-950/30"
+                            : "border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+                        )}
+                      >
+                        <span className={cn(
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[11px] font-black text-white",
+                          isCorrect ? "bg-emerald-500" : "bg-slate-300 dark:bg-slate-600"
+                        )}>
+                          {oid}
+                        </span>
+                        <span className={cn(
+                          "text-sm",
+                          isCorrect
+                            ? "font-semibold text-emerald-800 dark:text-emerald-200"
+                            : "text-slate-600 dark:text-slate-400"
+                        )}>
+                          {safeStr(opt.text) || "—"}
+                        </span>
+                        {isCorrect && <CheckCircle2 size={15} className="ml-auto mt-0.5 shrink-0 text-emerald-500" />}
+                      </div>
+                    );
+                  })
+                ) : (
+                  /* Sem alternativas: mostra só o label da resposta correta */
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900/40 dark:bg-emerald-950/30">
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-emerald-600 dark:text-emerald-400 mb-1">
+                      Resposta correta
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-emerald-500 text-xs font-black text-white">
+                        {correctOption.label || "?"}
+                      </span>
+                      <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                        {correctOption.text || <span className="italic opacity-60">—</span>}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
-              {/* Explanation */}
+              {/* Comentário */}
               {explanationHtml && (
                 <div className="mb-4">
                   <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400 mb-1.5">
@@ -567,7 +621,7 @@ export default function EstudarClient() {
                 </div>
               )}
 
-              {/* Rating buttons */}
+              {/* Botões de avaliação */}
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <button
                   onClick={() => void rate("didnt_know")}
