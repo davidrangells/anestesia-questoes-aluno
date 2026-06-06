@@ -175,6 +175,13 @@ export default function EstudoDeHojeClient() {
 
   useEffect(() => { void load(); }, [load]);
 
+  // Recarrega ao voltar para a aba (usuário estuda e retorna)
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [load]);
+
   const blocks = useMemo<StudyBlock[]>(() => {
     if (!plan) return [];
 
@@ -200,17 +207,17 @@ export default function EstudoDeHojeClient() {
       {
         id: "flashcards",
         title: "Revisão de flashcards",
-        subtitle: plan.flashcardsDue > 0
-          ? `${plan.flashcardsDue} card${plan.flashcardsDue > 1 ? "s" : ""} para revisar`
-          : plan.todayFlashcards >= plan.dailyFlashcardsGoal
+        subtitle: plan.flashcardsDue === 0 || plan.todayFlashcards >= plan.dailyFlashcardsGoal
           ? `Meta de ${plan.dailyFlashcardsGoal} flashcards atingida ✓`
-          : "Nenhum card vencido hoje",
+          : `${plan.flashcardsDue} card${plan.flashcardsDue > 1 ? "s" : ""} para revisar`,
         icon: <Layers size={20} />,
         count: plan.flashcardsDue,
         estimatedMin: plan.flashcardsDue * MIN_PER_FLASHCARD,
-        done: plan.flashcardsDue === 0,
+        done: plan.flashcardsDue === 0 || plan.todayFlashcards >= plan.dailyFlashcardsGoal,
         color: "indigo",
-        action: plan.flashcardsDue > 0 ? `Revisar ${plan.flashcardsDue}` : "Ver flashcards",
+        action: plan.flashcardsDue > 0 && plan.todayFlashcards < plan.dailyFlashcardsGoal
+          ? `Revisar ${plan.flashcardsDue}`
+          : "Ver flashcards",
       },
       {
         id: "caderno",
