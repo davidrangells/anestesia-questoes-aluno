@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2 } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2, NotebookPen, AlertTriangle } from "lucide-react";
 import { getDailyStatus } from "@/lib/daily";
 
 type SessionDoc = {
@@ -276,6 +276,9 @@ export default function DashboardClient() {
   const [daily, setDaily] = useState<{ exists: boolean; answered: boolean } | null>(null);
   const [todayProgress, setTodayProgress] = useState({ questions: 0, flashcards: 0 });
   const [dailyGoals, setDailyGoals] = useState({ questionsGoal: 20, flashcardsGoal: 10 });
+  const [errorNotebookCount, setErrorNotebookCount] = useState(0);
+  const [allTimeByTheme, setAllTimeByTheme] = useState<Record<string, { total: number; correct: number }>>({});
+  const [resumeWindow, setResumeWindow] = useState<"7d" | "30d">("7d");
 
   async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
@@ -292,13 +295,14 @@ export default function DashboardClient() {
       const ref = collection(db, "users", u.uid, "sessions");
       const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
-      const [snap, userSnap, fcSnap, statsSnap, settingsSnap, dailyStatus] = await Promise.all([
+      const [snap, userSnap, fcSnap, statsSnap, settingsSnap, dailyStatus, errorSnap] = await Promise.all([
         getDocs(qy),
         getDoc(doc(db, "users", u.uid)),
         getDocs(collection(db, "users", u.uid, "flashcards")),
         getDoc(doc(db, "users", u.uid, "meta", "stats")),
         getDoc(doc(db, "users", u.uid, "meta", "settings")),
         getDailyStatus(u.uid),
+        getDocs(collection(db, "users", u.uid, "errorNotebook")),
       ]);
 
       if (userSnap.exists()) {
@@ -308,13 +312,33 @@ export default function DashboardClient() {
       }
 
       if (statsSnap.exists()) {
-        const s = statsSnap.data() as { streakCount?: number; todayAnswered?: number; todayFlashcards?: number };
+        const s = statsSnap.data() as {
+          streakCount?: number;
+          todayAnswered?: number;
+          todayFlashcards?: number;
+          byTheme?: Record<string, { total?: number; correct?: number }>;
+        };
         setStreakCount(Number(s.streakCount ?? 0));
         setTodayProgress({
           questions: Number(s.todayAnswered ?? 0),
           flashcards: Number(s.todayFlashcards ?? 0),
         });
+        if (s.byTheme) {
+          const normalized: Record<string, { total: number; correct: number }> = {};
+          for (const [t, v] of Object.entries(s.byTheme)) {
+            normalized[t] = { total: Number(v?.total ?? 0), correct: Number(v?.correct ?? 0) };
+          }
+          setAllTimeByTheme(normalized);
+        }
       }
+
+      // Caderno de erros — contagem de pendentes
+      setErrorNotebookCount(
+        errorSnap.docs.filter((d) => {
+          const data = d.data() as { status?: string };
+          return (data.status ?? "pending") === "pending";
+        }).length
+      );
       if (settingsSnap.exists()) {
         const s = settingsSnap.data() as { dailyQuestionsGoal?: number; dailyFlashcardsGoal?: number };
         setDailyGoals({
@@ -450,6 +474,7 @@ export default function DashboardClient() {
   const now = Date.now();
   const last7dStart = now - 7 * 24 * 60 * 60 * 1000;
   const prev7dStart = now - 14 * 24 * 60 * 60 * 1000;
+  const last30dStart = now - 30 * 24 * 60 * 60 * 1000;
   const sessionsLast7d = useMemo(
     () => sessions.filter((s) => tsToMs(s.updatedAt || s.createdAt) >= last7dStart),
     [sessions, last7dStart]
@@ -474,6 +499,62 @@ export default function DashboardClient() {
     const correct = sessionsPrev7d.reduce((acc, s) => acc + safeNum(s.correctCount), 0);
     return answered > 0 ? (correct / answered) * 100 : 0;
   }, [sessionsPrev7d]);
+  const sessionsLast30d = useMemo(
+    () => sessions.filter((s) => tsToMs(s.updatedAt || s.createdAt) >= last30dStart),
+    [sessions, last30dStart]
+  );
+  const stats30d = useMemo(() => {
+    const answered = sessionsLast30d.reduce((acc, s) => acc + safeNum(s.answeredCount), 0);
+    const correct = sessionsLast30d.reduce((acc, s) => acc + safeNum(s.correctCount), 0);
+    const completed = sessionsLast30d.filter((s) => s.status === "completed").length;
+    const accuracy = answered > 0 ? (correct / answered) * 100 : 0;
+    return { answered, correct, completed, accuracy };
+  }, [sessionsLast30d]);
+
+  // Stats da janela selecionada (7d ou 30d)
+  const activeWindowStats = resumeWindow === "7d" ? stats7d : stats30d;
+  const activeWindowLabel = resumeWindow === "7d" ? "Últimos 7 dias" : "Últimos 30 dias";
+
+  // Insights consultivos baseados nas stats agregadas de tema
+  const themeInsights = useMemo(() => {
+    const entries = Object.entries(allTimeByTheme)
+      .filter(([, v]) => v.total >= 5)
+      .map(([theme, v]) => ({ theme, total: v.total, correct: v.correct, acc: v.total > 0 ? (v.correct / v.total) * 100 : 0 }))
+      .sort((a, b) => b.total - a.total);
+
+    const weakest = [...entries].sort((a, b) => a.acc - b.acc)[0] ?? null;
+    const strongest = [...entries].sort((a, b) => b.acc - a.acc)[0] ?? null;
+    const mostAnswered = entries[0] ?? null;
+
+    // Tema com queda recente: compara 7d vs acumulado
+    let falling: { theme: string; recentAcc: number; allTimeAcc: number } | null = null;
+    if (sessionsLast7d.length >= 2) {
+      const recent7dByTheme: Record<string, { total: number; correct: number }> = {};
+      for (const s of sessionsLast7d) {
+        // Usamos o approx de scorePercent/answeredCount da sessão como proxy
+        const sessionThemes = s.filters?.temas ?? [];
+        for (const t of sessionThemes) {
+          if (!recent7dByTheme[t]) recent7dByTheme[t] = { total: 0, correct: 0 };
+          recent7dByTheme[t].total += safeNum(s.answeredCount);
+          recent7dByTheme[t].correct += safeNum(s.correctCount);
+        }
+      }
+      let worstDrop = 0;
+      for (const [t, v] of Object.entries(recent7dByTheme)) {
+        if (v.total < 5) continue;
+        const recentAcc = v.total > 0 ? (v.correct / v.total) * 100 : 0;
+        const allTimeAcc = allTimeByTheme[t] ? (allTimeByTheme[t].correct / allTimeByTheme[t].total) * 100 : recentAcc;
+        const drop = allTimeAcc - recentAcc;
+        if (drop > 8 && drop > worstDrop) {
+          worstDrop = drop;
+          falling = { theme: t, recentAcc, allTimeAcc };
+        }
+      }
+    }
+
+    return { weakest, strongest, mostAnswered, falling };
+  }, [allTimeByTheme, sessionsLast7d]);
+
   const trendLabel = useMemo(() => {
     if (sessionsPrev7d.length === 0 || sessionsLast7d.length === 0) return "Sem comparação suficiente";
     const diff = stats7d.accuracy - prevAccuracy7d;
@@ -724,18 +805,49 @@ export default function DashboardClient() {
         </span>
       </button>
 
-      {/* RESUMO SEMANA + RECOMENDAÇÃO */}
+      {/* RESUMO PERÍODO + RECOMENDAÇÃO */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Últimos 7 dias</div>
-                <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">Resumo da semana</div>
+                <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">{activeWindowLabel}</div>
+                <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">Resumo</div>
               </div>
-              <div className={cn("flex items-center gap-1 text-xs font-semibold", trendColor)}>
-                <TrendIcon size={14} />
-                <span className="hidden sm:inline">{trendLabel}</span>
+              <div className="flex items-center gap-2">
+                {resumeWindow === "7d" && (
+                  <div className={cn("flex items-center gap-1 text-xs font-semibold", trendColor)}>
+                    <TrendIcon size={14} />
+                    <span className="hidden sm:inline">{trendLabel}</span>
+                  </div>
+                )}
+                {/* Toggle 7d / 30d */}
+                <div className="flex rounded-xl border border-slate-200 p-0.5 dark:border-slate-700">
+                  <button
+                    type="button"
+                    onClick={() => setResumeWindow("7d")}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-[11px] font-bold transition",
+                      resumeWindow === "7d"
+                        ? "bg-slate-900 text-white dark:bg-blue-500"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                    )}
+                  >
+                    7d
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setResumeWindow("30d")}
+                    className={cn(
+                      "rounded-lg px-2.5 py-1 text-[11px] font-bold transition",
+                      resumeWindow === "30d"
+                        ? "bg-slate-900 text-white dark:bg-blue-500"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400"
+                    )}
+                  >
+                    30d
+                  </button>
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -743,21 +855,21 @@ export default function DashboardClient() {
             <div className="grid grid-cols-3 gap-2">
               <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Respondidas</div>
-                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{stats7d.answered || "—"}</div>
+                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{activeWindowStats.answered || "—"}</div>
               </div>
               <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Acerto</div>
                 <div className={cn("mt-1 text-2xl font-black",
-                  stats7d.accuracy >= 70 ? "text-emerald-600 dark:text-emerald-400" :
-                  stats7d.accuracy >= 50 ? "text-amber-600 dark:text-amber-400" :
-                  stats7d.answered > 0 ? "text-rose-500 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"
+                  activeWindowStats.accuracy >= 70 ? "text-emerald-600 dark:text-emerald-400" :
+                  activeWindowStats.accuracy >= 50 ? "text-amber-600 dark:text-amber-400" :
+                  activeWindowStats.answered > 0 ? "text-rose-500 dark:text-rose-400" : "text-slate-900 dark:text-slate-100"
                 )}>
-                  {stats7d.answered > 0 ? formatPct(stats7d.accuracy) : "—"}
+                  {activeWindowStats.answered > 0 ? formatPct(activeWindowStats.accuracy) : "—"}
                 </div>
               </div>
               <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
                 <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Concluídos</div>
-                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{stats7d.completed || "—"}</div>
+                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{activeWindowStats.completed || "—"}</div>
               </div>
             </div>
           </CardBody>
@@ -767,23 +879,70 @@ export default function DashboardClient() {
           <CardHeader>
             <div className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-500">Recomendação</div>
             <div className="mt-0.5 text-lg font-black text-slate-900 dark:text-slate-100">
-              {needsFocus ? `Reforçar: ${needsFocus.theme}` : "Simulado rápido"}
+              {themeInsights.weakest ? `Reforçar: ${themeInsights.weakest.theme}` : needsFocus ? `Reforçar: ${needsFocus.theme}` : "Simulado rápido"}
             </div>
           </CardHeader>
           <CardBody className="space-y-3">
-            <p className="text-sm text-slate-600 dark:text-slate-400">{recommendation}</p>
+            {/* Insight de queda recente */}
+            {themeInsights.falling && (
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-300">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0" />
+                <span>
+                  <b>{themeInsights.falling.theme}</b> caiu{" "}
+                  {Math.round(themeInsights.falling.allTimeAcc - themeInsights.falling.recentAcc)} p.p. esta semana
+                  ({formatPct(themeInsights.falling.recentAcc)} vs {formatPct(themeInsights.falling.allTimeAcc)} geral).
+                </span>
+              </div>
+            )}
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              {themeInsights.weakest
+                ? `Acerto de ${formatPct(themeInsights.weakest.acc)} em ${themeInsights.weakest.theme} (${themeInsights.weakest.total} questões). Pratique mais esse tema para subir sua média.`
+                : recommendation}
+            </p>
             <div className="flex gap-2">
-              <Button className="flex-1 gap-1.5" onClick={() => router.push(recommendationHref)}>
+              <Button
+                className="flex-1 gap-1.5"
+                onClick={() => router.push(
+                  themeInsights.weakest
+                    ? `/aluno/simulados/novo?tema=${encodeURIComponent(themeInsights.weakest.theme)}&qtd=15`
+                    : recommendationHref
+                )}
+              >
                 <BookOpen size={14} />
-                {needsFocus ? "Treinar tema" : "Iniciar"}
+                {themeInsights.weakest ? "Treinar tema" : needsFocus ? "Treinar tema" : "Iniciar"}
               </Button>
               <Button className="flex-1" variant="secondary" onClick={() => router.push("/aluno/simulados/novo?qtd=10")}>
-                Sprint 10 questões
+                Sprint 10
               </Button>
             </div>
           </CardBody>
         </Card>
       </div>
+
+      {/* CADERNO DE ERROS — atalho rápido se houver pendentes */}
+      {errorNotebookCount > 0 && (
+        <button
+          type="button"
+          onClick={() => router.push("/aluno/caderno")}
+          className="flex w-full items-center justify-between gap-4 rounded-2xl border border-rose-200/70 bg-gradient-to-br from-rose-50 to-orange-50 p-5 text-left transition hover:border-rose-300 dark:border-rose-900/40 dark:from-rose-950/20 dark:to-orange-950/10 dark:hover:border-rose-700"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-rose-500 to-orange-500 text-white shadow-[0_10px_25px_rgba(244,63,94,0.3)]">
+              <NotebookPen size={20} />
+            </div>
+            <div>
+              <div className="text-lg font-black text-slate-900 dark:text-slate-100">Caderno de Erros</div>
+              <div className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
+                <b className="text-rose-600 dark:text-rose-400">{errorNotebookCount}</b>{" "}
+                questão{errorNotebookCount !== 1 ? "s" : ""} pendente{errorNotebookCount !== 1 ? "s" : ""} para revisar
+              </div>
+            </div>
+          </div>
+          <span className="hidden shrink-0 items-center gap-1 text-sm font-semibold text-rose-600 sm:inline-flex dark:text-rose-400">
+            Revisar <ChevronRight size={16} />
+          </span>
+        </button>
+      )}
 
       {/* Último simulado */}
       <Card>
@@ -979,25 +1138,56 @@ export default function DashboardClient() {
         </CardBody>
       </Card>
 
-      {/* Diagnóstico */}
+      {/* Diagnóstico por tema — usa stats agregadas (mais precisas) quando disponíveis */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tema para focar estudo</div>
+            <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Tema para focar</div>
             <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
-              {needsFocus ? needsFocus.theme : "Sem dados suficientes"}
+              {themeInsights.weakest?.theme ?? needsFocus?.theme ?? "Sem dados suficientes"}
             </div>
           </CardHeader>
           <CardBody className="space-y-3">
-            <div className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</div>
-            {needsFocus ? (
-              <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
-                <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Taxa de acerto atual</div>
-                <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
-                  {formatPct(needsFocus.accuracy)}
+            {themeInsights.weakest ? (
+              <>
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  Seu ponto mais fraco com amostra confiável. Praticar este tema é o que mais impacta sua média.
                 </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Acerto</div>
+                    <div className={cn("mt-1 text-2xl font-black",
+                      themeInsights.weakest.acc >= 70 ? "text-emerald-600 dark:text-emerald-400" :
+                      themeInsights.weakest.acc >= 50 ? "text-amber-600 dark:text-amber-400" : "text-rose-500 dark:text-rose-400"
+                    )}>
+                      {formatPct(themeInsights.weakest.acc)}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Questões</div>
+                    <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{themeInsights.weakest.total}</div>
+                  </div>
+                </div>
+                <Button
+                  className="w-full gap-1.5"
+                  onClick={() => router.push(`/aluno/simulados/novo?tema=${encodeURIComponent(themeInsights.weakest!.theme)}&qtd=15`)}
+                >
+                  <BookOpen size={14} /> Treinar agora
+                </Button>
+              </>
+            ) : needsFocus ? (
+              <>
+                <div className="text-sm text-slate-700 dark:text-slate-300">{recommendation}</div>
+                <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                  <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Taxa de acerto</div>
+                  <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{formatPct(needsFocus.accuracy)}</div>
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-slate-700 dark:text-slate-300">
+                Complete mais simulados para liberar o diagnóstico por tema.
               </div>
-            ) : null}
+            )}
           </CardBody>
         </Card>
 
@@ -1005,20 +1195,36 @@ export default function DashboardClient() {
           <CardHeader>
             <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Seu melhor tema</div>
             <div className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
-              {bestTheme ? bestTheme.theme : "Sem dados suficientes"}
+              {themeInsights.strongest?.theme ?? bestTheme?.theme ?? "Sem dados suficientes"}
             </div>
           </CardHeader>
           <CardBody className="space-y-3">
-            {bestTheme ? (
+            {themeInsights.strongest ? (
               <>
                 <div className="text-sm text-slate-700 dark:text-slate-300">
-                  Aproveite o bom momento para manter consistência nesse tema.
+                  Continue estudando para manter a consistência nesse tema.
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Acerto</div>
+                    <div className="mt-1 text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                      {formatPct(themeInsights.strongest.acc)}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">Questões</div>
+                    <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{themeInsights.strongest.total}</div>
+                  </div>
+                </div>
+              </>
+            ) : bestTheme ? (
+              <>
+                <div className="text-sm text-slate-700 dark:text-slate-300">
+                  Continue para manter consistência nesse tema.
                 </div>
                 <div className="rounded-2xl border bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800">
                   <div className="text-xs font-semibold text-slate-500 dark:text-slate-400">Acerto médio</div>
-                  <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">
-                    {formatPct(bestTheme.accuracy)}
-                  </div>
+                  <div className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{formatPct(bestTheme.accuracy)}</div>
                 </div>
               </>
             ) : (
