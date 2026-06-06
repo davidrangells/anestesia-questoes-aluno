@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2, NotebookPen, AlertTriangle } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2, NotebookPen, AlertTriangle, Sparkles } from "lucide-react";
 import { getDailyStatus } from "@/lib/daily";
 
 type SessionDoc = {
@@ -668,6 +668,30 @@ export default function DashboardClient() {
           {inProgressSession ? "Continuar simulado" : "Novo simulado"}
         </Button>
       </div>
+
+      {/* ESTUDO DE HOJE — CTA principal */}
+      <button
+        type="button"
+        onClick={() => router.push("/aluno/estudo-de-hoje")}
+        className="flex w-full items-center justify-between gap-4 rounded-2xl border border-indigo-200/80 bg-gradient-to-r from-indigo-600 to-blue-600 p-5 text-left shadow-[0_10px_40px_rgba(99,102,241,0.3)] transition hover:shadow-[0_14px_50px_rgba(99,102,241,0.4)] dark:border-indigo-700/50"
+      >
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/20 text-white">
+            <Sparkles size={22} />
+          </div>
+          <div>
+            <div className="text-lg font-black text-white">Estudo de hoje</div>
+            <div className="mt-0.5 text-sm text-indigo-100">
+              {todayProgress.questions > 0 || todayProgress.flashcards > 0
+                ? `${todayProgress.questions} questões · ${todayProgress.flashcards} flashcards feitos`
+                : "Veja seu plano diário personalizado"}
+            </div>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1 text-sm font-bold text-white">
+          Ver plano <ChevronRight size={16} />
+        </div>
+      </button>
 
       {/* PROGRESSO DO DIA */}
       {(todayProgress.questions > 0 || todayProgress.flashcards > 0 || dailyGoals.questionsGoal > 0) && (
