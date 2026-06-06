@@ -50,6 +50,22 @@ function yesterdayKey(): string {
   return dayKey(new Date(Date.now() - 24 * 60 * 60 * 1000));
 }
 
+/** Incrementa o contador de flashcards estudados hoje nas stats. */
+export async function recordFlashcardSession(uid: string, count: number): Promise<void> {
+  if (!uid || count <= 0) return;
+  try {
+    const statsRef = doc(db, "users", uid, "meta", "stats");
+    const snap = await getDoc(statsRef);
+    const prev = snap.exists() ? (snap.data() as Record<string, unknown>) : {};
+    const today = dayKey();
+    const isNewDay = safeStr(prev.todayKey) !== today;
+    const todayFlashcards = isNewDay ? count : (Number(prev.todayFlashcards ?? 0) + count);
+    await setDoc(statsRef, { todayFlashcards, todayKey: today, updatedAt: serverTimestamp() }, { merge: true });
+  } catch (e) {
+    console.error("[study-tracking] falha ao atualizar flashcards do dia:", e);
+  }
+}
+
 export type RecordAnswerInput = {
   uid: string;
   question: RawQuestion;
@@ -89,6 +105,11 @@ export async function recordAnswer(input: RecordAnswerInput): Promise<void> {
       byTheme[t] = { total: increment(1), correct: increment(isCorrect ? 1 : 0) };
     }
 
+    // Contadores diários: reset automático quando muda o dia
+    const isNewDay = lastDay !== today;
+    const todayAnswered = isNewDay ? 1 : (Number(prev.todayAnswered ?? 0) + 1);
+    const todayCorrect = isNewDay ? (isCorrect ? 1 : 0) : (Number(prev.todayCorrect ?? 0) + (isCorrect ? 1 : 0));
+
     await setDoc(
       statsRef,
       {
@@ -98,6 +119,9 @@ export async function recordAnswer(input: RecordAnswerInput): Promise<void> {
         streakCount,
         streakLastDay: today,
         longestStreak,
+        todayAnswered,
+        todayCorrect,
+        todayKey: today,
         lastAnswerAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       },

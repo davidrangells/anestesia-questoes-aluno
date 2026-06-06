@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2 } from "lucide-react";
 import { getDailyStatus } from "@/lib/daily";
 
 type SessionDoc = {
@@ -238,6 +238,31 @@ async function buildThemePerformance(items: SessionDoc[]): Promise<ThemePerforma
     });
 }
 
+function ProgressBar({ label, value, goal, color }: { label: string; value: number; goal: number; color: "indigo" | "blue" }) {
+  const pct = goal > 0 ? Math.min(100, Math.round((value / goal) * 100)) : 0;
+  const done = value >= goal;
+  const barColor = color === "indigo"
+    ? "bg-gradient-to-r from-indigo-500 to-blue-500"
+    : "bg-gradient-to-r from-blue-500 to-cyan-500";
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-600 dark:text-slate-400">
+        <span className="flex items-center gap-1">
+          {done && <CheckCircle2 size={12} className="text-emerald-500" />}
+          {label}
+        </span>
+        <span className={done ? "text-emerald-600 dark:text-emerald-400" : "text-slate-500 dark:text-slate-400"}>
+          {value} / {goal}
+          {done && " ✓"}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+        <div className={cn("h-full rounded-full transition-all duration-500", barColor)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardClient() {
   const router = useRouter();
 
@@ -249,6 +274,8 @@ export default function DashboardClient() {
   const [flashcardStats, setFlashcardStats] = useState({ studied: 0, due: 0, mastered: 0 });
   const [streakCount, setStreakCount] = useState(0);
   const [daily, setDaily] = useState<{ exists: boolean; answered: boolean } | null>(null);
+  const [todayProgress, setTodayProgress] = useState({ questions: 0, flashcards: 0 });
+  const [dailyGoals, setDailyGoals] = useState({ questionsGoal: 20, flashcardsGoal: 10 });
 
   async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
@@ -265,11 +292,12 @@ export default function DashboardClient() {
       const ref = collection(db, "users", u.uid, "sessions");
       const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
-      const [snap, userSnap, fcSnap, statsSnap, dailyStatus] = await Promise.all([
+      const [snap, userSnap, fcSnap, statsSnap, settingsSnap, dailyStatus] = await Promise.all([
         getDocs(qy),
         getDoc(doc(db, "users", u.uid)),
         getDocs(collection(db, "users", u.uid, "flashcards")),
         getDoc(doc(db, "users", u.uid, "meta", "stats")),
+        getDoc(doc(db, "users", u.uid, "meta", "settings")),
         getDailyStatus(u.uid),
       ]);
 
@@ -280,8 +308,19 @@ export default function DashboardClient() {
       }
 
       if (statsSnap.exists()) {
-        const s = statsSnap.data() as { streakCount?: number };
+        const s = statsSnap.data() as { streakCount?: number; todayAnswered?: number; todayFlashcards?: number };
         setStreakCount(Number(s.streakCount ?? 0));
+        setTodayProgress({
+          questions: Number(s.todayAnswered ?? 0),
+          flashcards: Number(s.todayFlashcards ?? 0),
+        });
+      }
+      if (settingsSnap.exists()) {
+        const s = settingsSnap.data() as { dailyQuestionsGoal?: number; dailyFlashcardsGoal?: number };
+        setDailyGoals({
+          questionsGoal: Number(s.dailyQuestionsGoal ?? 20),
+          flashcardsGoal: Number(s.dailyFlashcardsGoal ?? 10),
+        });
       }
       setDaily(dailyStatus ? { exists: dailyStatus.exists, answered: dailyStatus.answered } : null);
 
@@ -548,6 +587,37 @@ export default function DashboardClient() {
           {inProgressSession ? "Continuar simulado" : "Novo simulado"}
         </Button>
       </div>
+
+      {/* PROGRESSO DO DIA */}
+      {(todayProgress.questions > 0 || todayProgress.flashcards > 0 || dailyGoals.questionsGoal > 0) && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500">
+              Progresso de hoje
+            </div>
+            <button
+              onClick={() => router.push("/aluno/configuracoes")}
+              className="text-xs font-semibold text-slate-400 transition hover:text-slate-600 dark:hover:text-slate-200"
+            >
+              Editar metas →
+            </button>
+          </div>
+          <div className="space-y-3">
+            <ProgressBar
+              label="Questões"
+              value={todayProgress.questions}
+              goal={dailyGoals.questionsGoal}
+              color="indigo"
+            />
+            <ProgressBar
+              label="Flashcards"
+              value={todayProgress.flashcards}
+              goal={dailyGoals.flashcardsGoal}
+              color="blue"
+            />
+          </div>
+        </div>
+      )}
 
       {/* MÉTRICAS HEROICAS */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">

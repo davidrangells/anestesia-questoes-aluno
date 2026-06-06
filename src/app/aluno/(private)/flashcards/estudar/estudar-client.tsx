@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
+import { recordFlashcardSession } from "@/lib/study-tracking";
 import {
   collection,
   doc,
@@ -311,6 +312,8 @@ export default function EstudarClient() {
     setSessionResults((prev) => [...prev, { rating, questionId: qid }]);
 
     if (index + 1 >= cards.length) {
+      // Registra flashcards concluídos hoje (contagem da sessão inteira)
+      void recordFlashcardSession(u.uid, index + 1);
       setPhase("done");
     } else {
       setIndex((i) => i + 1);
