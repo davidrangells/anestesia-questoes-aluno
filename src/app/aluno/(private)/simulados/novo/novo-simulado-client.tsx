@@ -323,7 +323,6 @@ export default function NovoSimuladoClient() {
           <div className="mt-4 flex flex-wrap gap-2">
             {provas.map((p) => (
               <Pill key={p.id} label={p.sigla || p.nome || p.id}
-                count={provaCounts[p.id] ?? 0}
                 active={selectedProvas.includes(p.id)}
                 disabled={!selectedProvas.includes(p.id) && (provaCounts[p.id] ?? 0) === 0}
                 onClick={() => setSelectedProvas((prev) => toggle(prev, p.id))} />
@@ -339,7 +338,6 @@ export default function NovoSimuladoClient() {
           <div className="mt-4 flex flex-wrap gap-2">
             {["R1", "R2", "R3"].map((n) => (
               <Pill key={n} label={n}
-                count={nivelCounts[n] ?? 0}
                 active={selectedNiveis.includes(n)}
                 disabled={!selectedNiveis.includes(n) && (nivelCounts[n] ?? 0) === 0}
                 onClick={() => setSelectedNiveis((prev) => toggle(prev, n))} />
