@@ -16,6 +16,7 @@ function cn(...xs: Array<string | false | undefined | null>) {
 
 type ProfileData = {
   name?: string;
+  gender?: string;
   phone?: string;
   addressStreet?: string;
   addressNumber?: string;
@@ -107,6 +108,7 @@ export default function PerfilClient() {
   const [data, setData] = useState<ProfileData>({});
 
   const [name, setName] = useState("");
+  const [gender, setGender] = useState("");
   const [phone, setPhone] = useState("");
   const [addressStreet, setAddressStreet] = useState("");
   const [addressNumber, setAddressNumber] = useState("");
@@ -149,6 +151,7 @@ export default function PerfilClient() {
       const merged: ProfileData = {
         ...userData,
         name: pick(profileData.name, userData.name),
+        gender: (typeof profileData.gender === "string" ? profileData.gender : "") || userData.gender || "",
         phone: pick(profileData.phone, userData.phone),
         addressStreet: pick(nestedAddr.street, userData.addressStreet),
         addressNumber: pick(nestedAddr.number, userData.addressNumber),
@@ -161,6 +164,7 @@ export default function PerfilClient() {
 
       setData(merged);
       setName(merged.name || "");
+      setGender(merged.gender || "");
       setPhone(merged.phone || "");
       setAddressStreet(merged.addressStreet || "");
       setAddressNumber(merged.addressNumber || "");
@@ -177,7 +181,7 @@ export default function PerfilClient() {
   useEffect(() => { void load(); }, [load]);
 
   function cancelEdit() {
-    setName(data.name || ""); setPhone(data.phone || "");
+    setName(data.name || ""); setGender(data.gender || ""); setPhone(data.phone || "");
     setAddressStreet(data.addressStreet || ""); setAddressNumber(data.addressNumber || "");
     setAddressComplement(data.addressComplement || ""); setAddressNeighborhood(data.addressNeighborhood || "");
     setAddressCity(data.addressCity || ""); setAddressState(data.addressState || "");
@@ -192,7 +196,7 @@ export default function PerfilClient() {
     try {
       // Formato flat (compatibilidade com perfis antigos do portal)
       const payload: ProfileData = {
-        name: name.trim(), phone: phone.trim(),
+        name: name.trim(), gender, phone: phone.trim(),
         addressStreet: addressStreet.trim(), addressNumber: addressNumber.trim(),
         addressComplement: addressComplement.trim(), addressNeighborhood: addressNeighborhood.trim(),
         addressCity: addressCity.trim(), addressState: addressState.trim(),
@@ -205,6 +209,7 @@ export default function PerfilClient() {
       // Formato nested (compatibilidade com o admin / fonte canônica)
       const profilePayload = {
         name: name.trim() || null,
+        gender: gender || null,
         phone: phone.trim() || null,
         address: {
           street: addressStreet.trim() || null,
@@ -317,7 +322,32 @@ export default function PerfilClient() {
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-12">
               <Field label="Nome completo" icon={User} value={name} onChange={setName}
-                placeholder="Ex: Dr. João Silva" disabled={!editing} half />
+                placeholder="Ex: João Silva" disabled={!editing} half />
+              {/* Seletor de gênero */}
+              <div className="sm:col-span-6">
+                <label className="mb-1.5 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Gênero
+                </label>
+                <div className="flex gap-2">
+                  {[{ value: "M", label: "Masculino" }, { value: "F", label: "Feminino" }].map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      disabled={!editing}
+                      onClick={() => setGender(gender === value ? "" : value)}
+                      className={cn(
+                        "flex-1 rounded-2xl border px-3 py-2.5 text-sm font-semibold transition",
+                        gender === value
+                          ? "border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-500"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400",
+                        !editing && "cursor-not-allowed opacity-60"
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Field label="Telefone" icon={Phone} value={phone} onChange={setPhone}
                 placeholder="Ex: (15) 99999-9999" disabled={!editing} half />
             </div>

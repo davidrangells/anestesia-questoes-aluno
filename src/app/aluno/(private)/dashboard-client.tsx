@@ -279,6 +279,7 @@ export default function DashboardClient() {
   const [errorNotebookCount, setErrorNotebookCount] = useState(0);
   const [allTimeByTheme, setAllTimeByTheme] = useState<Record<string, { total: number; correct: number }>>({});
   const [resumeWindow, setResumeWindow] = useState<"7d" | "30d">("7d");
+  const [userGender, setUserGender] = useState("");
 
   async function load({ keepVisible = false }: { keepVisible?: boolean } = {}) {
     const u = auth.currentUser;
@@ -306,9 +307,10 @@ export default function DashboardClient() {
       ]);
 
       if (userSnap.exists()) {
-        const userData = userSnap.data() as { name?: string };
+        const userData = userSnap.data() as { name?: string; gender?: string };
         const rawName = (userData.name || "").trim();
         if (rawName) setFirestoreName(rawName.split(" ")[0]);
+        if (userData.gender) setUserGender(userData.gender);
       }
 
       if (statsSnap.exists()) {
@@ -629,6 +631,7 @@ export default function DashboardClient() {
     firestoreName ||
     (auth.currentUser?.displayName || "").trim().split(" ")[0] ||
     "";
+  const drTitle = userGender === "F" ? "Dra" : userGender === "M" ? "Dr" : firstName.toLowerCase().endsWith("a") ? "Dra" : "Dr";
   const todayLabel = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 
   // Trend icon
@@ -651,7 +654,7 @@ export default function DashboardClient() {
         <div>
           <div className="text-xs font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500 capitalize">{todayLabel}</div>
           <div className="mt-0.5 text-2xl font-black text-slate-900 dark:text-slate-100">
-            {firstName ? `${greeting}, ${firstName}! 👋` : `${greeting}! 👋`}
+            {firstName ? `${greeting}, ${drTitle} ${firstName}!` : `${greeting}!`}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
             <span>{lastStudyLabel}</span>
