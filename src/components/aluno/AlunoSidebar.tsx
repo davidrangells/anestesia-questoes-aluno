@@ -11,6 +11,9 @@ import {
   Home,
   Brain,
   Layers,
+  NotebookPen,
+  Sparkles,
+  Settings2,
   CreditCard,
   User,
   LogOut,
@@ -154,10 +157,13 @@ export default function AlunoSidebar({
           Navegação
         </div>
         <Item href="/aluno" label="Início" Icon={Home} onNavigate={onNavigate} />
+        <Item href="/aluno/estudo-de-hoje" label="Estudo de hoje" Icon={Sparkles} onNavigate={onNavigate} />
         <Item href="/aluno/simulados" label="Simulados" Icon={Brain} onNavigate={onNavigate} />
         <Item href="/aluno/flashcards" label="Flashcards" Icon={Layers} onNavigate={onNavigate} badge="Novo" />
+        <Item href="/aluno/caderno" label="Caderno de Erros" Icon={NotebookPen} onNavigate={onNavigate} badge="Novo" />
         <Item href="/aluno/assinatura" label="Assinatura" Icon={CreditCard} onNavigate={onNavigate} />
         <Item href="/aluno/perfil" label="Perfil" Icon={User} onNavigate={onNavigate} />
+        <Item href="/aluno/configuracoes" label="Metas diárias" Icon={Settings2} onNavigate={onNavigate} />
       </nav>
 
       <div className="mt-auto space-y-3 border-t border-slate-200 bg-white px-4 py-4 dark:border-slate-800/80 dark:bg-[#030b21]">

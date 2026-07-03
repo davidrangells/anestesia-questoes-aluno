@@ -15,6 +15,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { recordAnswer } from "@/lib/study-tracking";
 import { usePageHeader } from "@/components/aluno/AlunoPageHeaderContext";
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertCircle, Flag } from "lucide-react";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -635,6 +636,17 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
           scorePercent,
         };
       });
+
+      // Acompanhamento de estudo (stats + caderno de erros) — só em resposta nova.
+      if (!result.alreadyAnswered) {
+        void recordAnswer({
+          uid: u.uid,
+          question: currentQuestion as unknown as Record<string, unknown> & { id: string },
+          isCorrect: result.isCorrect,
+          selectedOptionId: result.selectedOptionId || null,
+          correctOptionId: correct || null,
+        });
+      }
 
       setSession((prev) =>
         prev
