@@ -48,6 +48,7 @@ export type FlashcardListItem = {
   deckIds: string[];
   difficulty: Difficulty;
   sourceQuestionId: string | null;
+  sourceQuestionPreview: string | null;
 };
 
 function toFlashcardListItem(id: string, data: Record<string, unknown>): FlashcardListItem {
@@ -62,7 +63,43 @@ function toFlashcardListItem(id: string, data: Record<string, unknown>): Flashca
     deckIds: Array.isArray(data.deckIds) ? (data.deckIds as string[]) : [],
     difficulty: (data.difficulty as Difficulty) ?? "medium",
     sourceQuestionId: (data.sourceQuestionId as string | null) ?? null,
+    sourceQuestionPreview: (data.sourceQuestionPreview as string | null) ?? null,
   };
+}
+
+/**
+ * Busca o texto completo da questao original de um card.
+ * Usado quando o frontText foi truncado no import — extrai o prompt real
+ * de questionsBank/{sourceQuestionId}.
+ */
+export async function fetchOriginalQuestionText(
+  sourceQuestionId: string
+): Promise<string | null> {
+  try {
+    const snap = await getDoc(doc(db, "questionsBank", sourceQuestionId));
+    if (!snap.exists()) return null;
+    const data = snap.data() as Record<string, unknown>;
+    const raw =
+      (data.prompt_text as string) ||
+      (data.prompt as string) ||
+      (data.questionText as string) ||
+      (data.statement as string) ||
+      "";
+    if (!raw) return null;
+    // Remove HTML basico
+    return raw
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/p>/gi, "\n")
+      .replace(/<[^>]*>/g, " ")
+      .replace(/&nbsp;/gi, " ")
+      .replace(/&amp;/gi, "&")
+      .replace(/&lt;/gi, "<")
+      .replace(/&gt;/gi, ">")
+      .replace(/\s+/g, " ")
+      .trim();
+  } catch {
+    return null;
+  }
 }
 
 /**

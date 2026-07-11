@@ -18,6 +18,7 @@ import { useHasFlashcardsAccess } from "@/lib/flashcards/access";
 import { buildStudyQueue, type StudyCard } from "@/lib/flashcards/session";
 import {
   bumpStreakAndReviews,
+  fetchOriginalQuestionText,
   saveProgress,
 } from "@/lib/flashcards/queries";
 import { initialSrsState, scheduleNext } from "@/lib/flashcards/srs";
@@ -34,6 +35,9 @@ export default function EstudarClient() {
   const [loading, setLoading] = useState(true);
   const [flipped, setFlipped] = useState(false);
   const [saving, setSaving] = useState(false);
+  // Cache local dos textos completos das questoes originais (por sourceQuestionId).
+  // Evita reconsultar o Firestore ao voltar em cards ja vistos.
+  const [originalTexts, setOriginalTexts] = useState<Record<string, string>>({});
   const [sessionStats, setSessionStats] = useState({
     reviewed: 0,
     correct: 0,
@@ -76,6 +80,54 @@ export default function EstudarClient() {
   useEffect(() => {
     setFlipped(false);
   }, [index]);
+
+  // Se o card atual tem sourceQuestionId e ainda nao buscamos o texto completo,
+  // busca em background. Tambem pre-busca o proximo card para tornar a
+  // transicao imperceptivel.
+  useEffect(() => {
+    const idsToFetch = new Set<string>();
+    for (const offset of [0, 1]) {
+      const card = queue[index + offset]?.card;
+      if (card?.sourceQuestionId && !originalTexts[card.sourceQuestionId]) {
+        idsToFetch.add(card.sourceQuestionId);
+      }
+    }
+    if (idsToFetch.size === 0) return;
+    let cancelled = false;
+    (async () => {
+      const updates: Record<string, string> = {};
+      await Promise.all(
+        Array.from(idsToFetch).map(async (qid) => {
+          const text = await fetchOriginalQuestionText(qid);
+          if (text) updates[qid] = text;
+        })
+      );
+      if (!cancelled && Object.keys(updates).length > 0) {
+        setOriginalTexts((prev) => ({ ...prev, ...updates }));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [index, queue, originalTexts]);
+
+  /**
+   * Retorna o texto da pergunta a mostrar:
+   * - Se o frontText termina com "..." (truncado no import), usa a questao original completa
+   * - Caso contrario, mantem o frontText original
+   */
+  const questionText = useMemo(() => {
+    if (!current) return "";
+    const front = current.card.frontText || "";
+    const wasTruncated =
+      /(\.{3,}|…)\s*$/.test(front.trim()) ||
+      (front.length > 0 && front.length < 30);
+    if (wasTruncated && current.card.sourceQuestionId) {
+      const original = originalTexts[current.card.sourceQuestionId];
+      if (original) return original;
+    }
+    return front;
+  }, [current, originalTexts]);
 
   const applyAnswer = useCallback(
     async (answer: SrsAnswer) => {
@@ -227,70 +279,112 @@ export default function EstudarClient() {
         />
       </div>
 
-      {/* Card */}
-      <div className="rounded-3xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
-        {/* Frente */}
-        <div className="border-b border-slate-100 p-6 sm:p-8 dark:border-slate-800">
-          <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-bold uppercase tracking-widest text-blue-600">
-              Pergunta
-            </span>
-            {current.isNew && (
-              <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-300">
-                Novo
-              </span>
-            )}
-            {current.card.themeName && (
-              <span className="ml-auto text-xs text-slate-500">
-                {current.card.themeName}
-              </span>
-            )}
-          </div>
-          <p className="text-xl font-medium leading-relaxed text-slate-900 dark:text-slate-100">
-            {current.card.frontText}
-          </p>
-        </div>
-
-        {/* Verso (escondido ate flip) */}
-        {flipped ? (
-          <div className="p-6 sm:p-8">
-            <div className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-600">
-              Resposta
+      {/* Card com flip 3D */}
+      <div className="flashcard-scene">
+        <div className={`flashcard-inner ${flipped ? "is-flipped" : ""}`}>
+          {/* FRENTE */}
+          <div className="flashcard-face flashcard-front rounded-3xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex flex-col p-6 sm:p-8">
+              <div className="mb-3 flex items-center gap-2">
+                <span className="text-xs font-bold uppercase tracking-widest text-blue-600">
+                  Pergunta
+                </span>
+                {current.isNew && (
+                  <span className="rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-yellow-800 dark:bg-yellow-950/50 dark:text-yellow-300">
+                    Novo
+                  </span>
+                )}
+                {current.card.themeName && (
+                  <span className="ml-auto text-xs text-slate-500">
+                    {current.card.themeName}
+                  </span>
+                )}
+              </div>
+              <p className="whitespace-pre-wrap text-lg leading-relaxed text-slate-900 dark:text-slate-100 sm:text-xl">
+                {questionText || (
+                  <span className="text-slate-400 italic">
+                    Carregando pergunta...
+                  </span>
+                )}
+              </p>
+              <div className="mt-auto pt-6 text-center">
+                <button
+                  type="button"
+                  onClick={() => setFlipped(true)}
+                  className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-700 to-blue-500 px-8 py-4 text-base font-bold text-white shadow-lg transition hover:from-blue-600 hover:to-blue-400"
+                >
+                  Mostrar resposta <Kbd>Espaço</Kbd>
+                </button>
+              </div>
             </div>
-            <p className="text-lg font-semibold text-emerald-800 dark:text-emerald-300">
-              {current.card.backText}
-            </p>
-            {current.card.shortExplanation && (
-              <>
-                <div className="mt-6 mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
-                  Explicação
-                </div>
-                <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                  {current.card.shortExplanation}
-                </p>
-              </>
-            )}
-            {current.card.sourceQuestionId && (
-              <Link
-                href={`/aluno/questao/${current.card.sourceQuestionId}`}
-                className="mt-6 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
-              >
-                <ExternalLink size={12} /> Ver questão original
-              </Link>
-            )}
           </div>
-        ) : (
-          <div className="p-6 sm:p-8 text-center">
-            <button
-              type="button"
-              onClick={() => setFlipped(true)}
-              className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-700 to-blue-500 px-8 py-4 text-base font-bold text-white shadow-lg transition hover:from-blue-600 hover:to-blue-400"
-            >
-              Mostrar resposta <Kbd>Espaço</Kbd>
-            </button>
+
+          {/* VERSO */}
+          <div className="flashcard-face flashcard-back rounded-3xl border border-emerald-200 bg-emerald-50/40 shadow-lg dark:border-emerald-900 dark:bg-emerald-950/20">
+            <div className="flex flex-col p-6 sm:p-8">
+              <div className="mb-2 text-xs font-bold uppercase tracking-widest text-emerald-600">
+                Resposta
+              </div>
+              <p className="text-xl font-bold text-emerald-800 dark:text-emerald-300">
+                {current.card.backText}
+              </p>
+              {current.card.shortExplanation && (
+                <>
+                  <div className="mt-6 mb-2 text-xs font-bold uppercase tracking-widest text-slate-500">
+                    Explicação
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-700 dark:text-slate-300">
+                    {current.card.shortExplanation}
+                  </p>
+                </>
+              )}
+              {current.card.sourceQuestionId && (
+                <Link
+                  href={`/aluno/questao/${current.card.sourceQuestionId}`}
+                  className="mt-6 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
+                >
+                  <ExternalLink size={12} /> Ver questão original
+                </Link>
+              )}
+            </div>
           </div>
-        )}
+        </div>
       </div>
+
+      {/* Estilos do flip 3D — CSS puro para nao depender de styled-jsx */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `
+        .flashcard-scene {
+          perspective: 1500px;
+          min-height: 380px;
+        }
+        .flashcard-inner {
+          position: relative;
+          width: 100%;
+          transform-style: preserve-3d;
+          transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .flashcard-inner.is-flipped {
+          transform: rotateY(180deg);
+        }
+        .flashcard-face {
+          width: 100%;
+          -webkit-backface-visibility: hidden;
+          backface-visibility: hidden;
+        }
+        .flashcard-front {
+          position: relative;
+        }
+        .flashcard-back {
+          position: absolute;
+          top: 0;
+          left: 0;
+          transform: rotateY(180deg);
+        }
+      `,
+        }}
+      />
 
       {/* Botões de resposta */}
       {flipped && (
