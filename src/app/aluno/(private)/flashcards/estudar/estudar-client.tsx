@@ -8,7 +8,6 @@ import { auth } from "@/lib/firebase";
 import {
   ArrowLeft,
   Check,
-  ExternalLink,
   Frown,
   Meh,
   Sparkles,
@@ -350,14 +349,6 @@ export default function EstudarClient() {
                     {current.card.shortExplanation}
                   </p>
                 </>
-              )}
-              {current.card.sourceQuestionId && (
-                <Link
-                  href={`/aluno/questao/${current.card.sourceQuestionId}`}
-                  className="mt-6 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 hover:underline"
-                >
-                  <ExternalLink size={12} /> Ver questão original
-                </Link>
               )}
             </div>
           </div>
