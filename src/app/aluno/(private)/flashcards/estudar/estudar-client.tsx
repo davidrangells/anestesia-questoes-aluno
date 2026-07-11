@@ -50,6 +50,10 @@ export default function EstudarClient() {
     return onAuthStateChanged(auth, (u) => setUid(u?.uid ?? null));
   }, []);
 
+  // Contador incrementado ao clicar em "Continuar estudando" — dispara reload
+  // da fila sem precisar mudar de rota.
+  const [reloadKey, setReloadKey] = useState(0);
+
   useEffect(() => {
     if (!access.hasAccess || !uid) {
       if (!access.loading) setLoading(false);
@@ -71,7 +75,11 @@ export default function EstudarClient() {
     return () => {
       alive = false;
     };
-  }, [access.hasAccess, uid, deckId, access.loading]);
+  }, [access.hasAccess, uid, deckId, access.loading, reloadKey]);
+
+  const restartSession = useCallback(() => {
+    setReloadKey((k) => k + 1);
+  }, []);
 
   const current = queue[index];
   const total = queue.length;
@@ -251,7 +259,12 @@ export default function EstudarClient() {
   }
 
   if (isDone) {
-    return <DoneScreen stats={sessionStats} deckId={deckId} />;
+    return (
+      <DoneScreen
+        stats={sessionStats}
+        onContinue={restartSession}
+      />
+    );
   }
 
   if (!current) return null;
@@ -465,10 +478,10 @@ function Kbd({ children }: { children: React.ReactNode }) {
 
 function DoneScreen({
   stats,
-  deckId,
+  onContinue,
 }: {
   stats: { reviewed: number; correct: number; almost: number; wrong: number; newMastered: number };
-  deckId?: string;
+  onContinue: () => void;
 }) {
   const percent = stats.reviewed > 0
     ? Math.round((stats.correct / stats.reviewed) * 100)
@@ -507,12 +520,13 @@ function DoneScreen({
           Voltar
         </Link>
         {stats.reviewed > 0 && (
-          <Link
-            href={deckId ? `/aluno/flashcards/estudar?deck=${deckId}` : "/aluno/flashcards/estudar"}
+          <button
+            type="button"
+            onClick={onContinue}
             className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-2.5 text-sm font-bold text-white shadow-md hover:from-blue-600 hover:to-blue-400"
           >
             <Check size={14} /> Continuar estudando
-          </Link>
+          </button>
         )}
       </div>
     </div>
