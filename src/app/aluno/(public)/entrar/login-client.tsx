@@ -146,7 +146,7 @@ export default function LoginClient() {
             {/* Features */}
             <div className="relative z-10 space-y-2">
               {[
-                { icon: "🧠", text: "+3.000 questões comentadas" },
+                { icon: "🧠", text: "+4.500 questões comentadas" },
                 { icon: "📊", text: "Dashboard de desempenho por tema" },
                 { icon: "🎯", text: "Simulados ME1, ME2, ME3 e TEA" },
               ].map((f) => (
