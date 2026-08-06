@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 import {
   BarChart3,
+  ChevronDown,
   Flame,
   Layers,
   Lock,
+  Search,
   Sparkles,
+  Target,
   Zap,
 } from "lucide-react";
 import { fetchOrCreateSettings, fetchPublishedDecks, type DeckListItem } from "@/lib/flashcards/queries";
@@ -17,12 +21,26 @@ import { useHasFlashcardsAccess } from "@/lib/flashcards/access";
 import { MODULE_LABEL } from "@/lib/flashcards/constants";
 import type { UserFlashcardSettingsDoc, Module } from "@/lib/flashcards/types";
 
+/** Remove acentos e baixa a caixa para comparar/buscar sem sensibilidade. */
+function normalize(s: string) {
+  return s
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+const INITIAL_VISIBLE = 12;
+
 export default function FlashcardsClient() {
   const access = useHasFlashcardsAccess();
   const [decks, setDecks] = useState<DeckListItem[]>([]);
   const [settings, setSettings] = useState<UserFlashcardSettingsDoc | null>(null);
   const [loading, setLoading] = useState(true);
   const [uid, setUid] = useState<string | null>(null);
+  const [weakThemes, setWeakThemes] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUid(u?.uid ?? null));
@@ -52,6 +70,63 @@ export default function FlashcardsClient() {
       alive = false;
     };
   }, [access.hasAccess, uid, access.loading]);
+
+  // Temas mais fracos do aluno (para sugerir decks) — não bloqueia a tela
+  useEffect(() => {
+    if (!uid) return;
+    let alive = true;
+    (async () => {
+      try {
+        const snap = await getDoc(doc(db, "users", uid, "meta", "stats"));
+        if (!alive || !snap.exists()) return;
+        const byTheme = (snap.data().byTheme ?? {}) as Record<
+          string,
+          { answered?: number; correct?: number }
+        >;
+        const ranked = Object.entries(byTheme)
+          .filter(([, v]) => (v.answered ?? 0) >= 5)
+          .map(([theme, v]) => ({
+            theme,
+            rate: (v.correct ?? 0) / (v.answered ?? 1),
+          }))
+          .sort((a, b) => a.rate - b.rate)
+          .slice(0, 3)
+          .map((t) => t.theme);
+        setWeakThemes(ranked);
+      } catch {
+        // sugestão é opcional; falha silenciosa
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [uid]);
+
+  // ─── Busca + sugestões ──────────────────────────────────────────────────
+  const suggestedDecks = useMemo(() => {
+    if (weakThemes.length === 0 || decks.length === 0) return [];
+    const normThemes = weakThemes.map(normalize);
+    return decks
+      .filter((d) => {
+        const t = normalize(d.title);
+        const th = d.themeId ? normalize(d.themeId) : "";
+        return normThemes.some(
+          (w) => t.includes(w) || w.includes(t) || (th && (th.includes(w) || w.includes(th)))
+        );
+      })
+      .slice(0, 6);
+  }, [decks, weakThemes]);
+
+  const filteredDecks = useMemo(() => {
+    const q = normalize(search);
+    if (!q) return decks;
+    return decks.filter((d) => normalize(d.title).includes(q));
+  }, [decks, search]);
+
+  const isSearching = search.trim().length > 0;
+  const visibleDecks =
+    isSearching || showAll ? filteredDecks : filteredDecks.slice(0, INITIAL_VISIBLE);
+  const hiddenCount = filteredDecks.length - visibleDecks.length;
 
   // ─── Estados de bloqueio ────────────────────────────────────────────────
   if (access.loading) {
@@ -127,16 +202,57 @@ export default function FlashcardsClient() {
         </div>
       </Link>
 
+      {/* Sugeridos para você */}
+      {!loading && suggestedDecks.length > 0 && !isSearching && (
+        <div>
+          <div className="mb-3 flex items-center gap-2">
+            <Target size={18} className="text-rose-500" />
+            <h3 className="text-lg font-black text-slate-900 dark:text-white">
+              Sugeridos para você
+            </h3>
+            <span className="rounded-full bg-rose-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-rose-600 dark:bg-rose-950/40 dark:text-rose-400">
+              foco nos seus pontos fracos
+            </span>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {suggestedDecks.map((deck) => (
+              <DeckCard key={deck.id} deck={deck} highlighted />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Decks */}
       <div>
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white">
-            Decks disponíveis
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h3 className="shrink-0 text-lg font-black text-slate-900 dark:text-white">
+            Todos os decks
           </h3>
           <span className="text-xs text-slate-500">
-            {loading ? "..." : `${decks.length} decks`}
+            {loading
+              ? "..."
+              : isSearching
+              ? `${filteredDecks.length} de ${decks.length} decks`
+              : `${decks.length} decks`}
           </span>
         </div>
+
+        {/* Busca */}
+        {!loading && decks.length > 0 && (
+          <div className="relative mb-4">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar deck por tema... ex: pediatria, obstetrícia, dor"
+              className="w-full rounded-2xl border border-slate-200 bg-white py-2.5 pl-10 pr-4 text-sm text-slate-800 placeholder:text-slate-400 focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200 dark:focus:border-blue-600 dark:focus:ring-blue-950"
+            />
+          </div>
+        )}
 
         {loading ? (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -154,33 +270,70 @@ export default function FlashcardsClient() {
               Novos decks aparecerão aqui em breve.
             </div>
           </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {decks.map((deck) => (
-              <Link
-                key={deck.id}
-                href={`/aluno/flashcards/estudar?deck=${encodeURIComponent(deck.id)}`}
-                className="group rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-700"
-              >
-                <div className="mb-1 flex items-center gap-2">
-                  {deck.moduleId && (
-                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                      {MODULE_LABEL[deck.moduleId as Module]}
-                    </span>
-                  )}
-                  <span className="text-xs text-slate-500">
-                    {deck.cardCount} card(s)
-                  </span>
-                </div>
-                <div className="font-semibold text-slate-800 group-hover:text-blue-600 dark:text-slate-200 dark:group-hover:text-blue-400">
-                  {deck.title}
-                </div>
-              </Link>
-            ))}
+        ) : filteredDecks.length === 0 ? (
+          <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
+            <Search size={40} className="mx-auto mb-3 text-slate-300" />
+            <div className="font-semibold text-slate-700 dark:text-slate-300">
+              Nenhum deck encontrado
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              Tente buscar por outro termo, ex: &quot;pediatria&quot; ou &quot;dor&quot;.
+            </div>
           </div>
+        ) : (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleDecks.map((deck) => (
+                <DeckCard key={deck.id} deck={deck} />
+              ))}
+            </div>
+            {hiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAll(true)}
+                className="mt-4 flex w-full items-center justify-center gap-1.5 rounded-2xl border border-slate-200 bg-white py-3 text-sm font-bold text-slate-600 transition hover:border-blue-300 hover:text-blue-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-blue-700 dark:hover:text-blue-400"
+              >
+                <ChevronDown size={16} />
+                Mostrar todos os {filteredDecks.length} decks
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>
+  );
+}
+
+function DeckCard({ deck, highlighted }: { deck: DeckListItem; highlighted?: boolean }) {
+  return (
+    <Link
+      href={`/aluno/flashcards/estudar?deck=${encodeURIComponent(deck.id)}`}
+      className={`group rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${
+        highlighted
+          ? "border-rose-200 bg-rose-50/50 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/20 dark:hover:border-rose-700"
+          : "border-slate-200 bg-white hover:border-blue-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-blue-700"
+      }`}
+    >
+      <div className="mb-1 flex items-center gap-2">
+        {deck.moduleId && (
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+            {MODULE_LABEL[deck.moduleId as Module]}
+          </span>
+        )}
+        <span className="text-xs text-slate-500">
+          {deck.cardCount} card(s)
+        </span>
+      </div>
+      <div
+        className={`font-semibold ${
+          highlighted
+            ? "text-slate-800 group-hover:text-rose-600 dark:text-slate-200 dark:group-hover:text-rose-400"
+            : "text-slate-800 group-hover:text-blue-600 dark:text-slate-200 dark:group-hover:text-blue-400"
+        }`}
+      >
+        {deck.title}
+      </div>
+    </Link>
   );
 }
 
