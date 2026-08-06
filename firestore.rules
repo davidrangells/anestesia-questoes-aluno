@@ -79,6 +79,31 @@ service cloud.firestore {
       allow read, update, delete: if false;
     }
 
+    // ─── Flashcards (novo modulo) ─────────────────────────────────────────
+    // Cards e decks: leitura para logados (o app filtra o que mostrar por
+    // status/isActive/plano). Escrita apenas via admin SDK.
+    match /flashcards/{cardId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /flashcardDecks/{deckId} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    // Progresso individual do aluno em cada card. ID = {uid}_{flashcardId}
+    // Aluno pode ler/escrever apenas os proprios documentos.
+    match /userFlashcardProgress/{docId} {
+      allow read, write: if isSignedIn()
+        && docId.matches(request.auth.uid + '_.+');
+    }
+
+    // Configuracoes/stats de flashcards do aluno. ID = uid.
+    match /userFlashcardSettings/{uid} {
+      allow read, write: if isOwner(uid);
+    }
+
     // Fallback: nega tudo que nao foi explicitamente permitido
     match /{document=**} {
       allow read, write: if false;
