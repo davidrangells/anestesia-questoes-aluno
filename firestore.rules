@@ -95,8 +95,12 @@ service cloud.firestore {
     // Progresso individual do aluno em cada card. ID = {uid}_{flashcardId}
     // Aluno pode ler/escrever apenas os proprios documentos.
     match /userFlashcardProgress/{docId} {
-      allow read, write: if isSignedIn()
+      allow get, write: if isSignedIn()
         && docId.matches(request.auth.uid + '_.+');
+      // Query da colecao: liberada apenas para os proprios documentos, o que
+      // permite montar o Deck do Dia com uma query em vez de um getDoc por card.
+      allow list: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
     }
 
     // Configuracoes/stats de flashcards do aluno. ID = uid.

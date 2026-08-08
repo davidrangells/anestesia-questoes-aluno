@@ -34,6 +34,10 @@ function getExplanation(q: RawQuestion): string {
   return safeStr(q.explanation ?? q.comentario ?? q.comment ?? "");
 }
 
+function getImageUrl(q: RawQuestion): string {
+  return safeStr(q.imageUrl ?? q.image ?? "");
+}
+
 function getOptions(q: RawQuestion): QuestionOption[] {
   const raw = q.options;
   if (!Array.isArray(raw)) return [];
@@ -43,7 +47,7 @@ function getOptions(q: RawQuestion): QuestionOption[] {
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-const ALLOWED_TAGS = new Set(["p", "br", "strong", "b", "em", "i", "u", "span", "ul", "ol", "li", "blockquote", "code", "pre"]);
+const ALLOWED_TAGS = new Set(["p", "br", "strong", "b", "em", "i", "u", "sub", "sup", "span", "ul", "ol", "li", "blockquote", "code", "pre"]);
 
 function sanitizeRich(raw: string): string {
   if (typeof window === "undefined") return raw;
@@ -120,6 +124,7 @@ export default function QuestaoDoDiaClient() {
   const correctId = useMemo(() => (question ? getCorrectId(question) : ""), [question]);
   const options = useMemo(() => (question ? getOptions(question) : []), [question]);
   const statementHtml = useMemo(() => (question ? toHtml(getStatement(question)) : ""), [question]);
+  const imageUrl = useMemo(() => (question ? getImageUrl(question) : ""), [question]);
   const explanationHtml = useMemo(() => (question ? toHtml(getExplanation(question)) : ""), [question]);
 
   async function onConfirm() {
@@ -204,6 +209,15 @@ export default function QuestaoDoDiaClient() {
           <div className="text-sm italic text-slate-400">Sem enunciado disponível.</div>
         )}
 
+        {imageUrl ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img
+            src={imageUrl}
+            alt="Imagem da questão"
+            className="mt-4 max-h-64 w-auto rounded-xl border border-slate-200 dark:border-slate-700"
+          />
+        ) : null}
+
         {/* Options */}
         <div className="mt-5 space-y-2">
           {options.map((opt) => {
@@ -233,7 +247,17 @@ export default function QuestaoDoDiaClient() {
                 )}>
                   {opt.id}
                 </span>
-                <span className="pt-0.5 text-slate-700 dark:text-slate-200">{opt.text || "—"}</span>
+                <span className="min-w-0 pt-0.5 text-slate-700 dark:text-slate-200">
+                  <span className="block">{opt.text || "—"}</span>
+                  {opt.imageUrl ? (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img
+                      src={opt.imageUrl}
+                      alt=""
+                      className="mt-2 max-h-40 rounded-lg border border-slate-200 dark:border-slate-700"
+                    />
+                  ) : null}
+                </span>
                 {isThisCorrect && <CheckCircle2 size={16} className="ml-auto mt-0.5 shrink-0 text-emerald-500" />}
                 {isWrongChosen && <XCircle size={16} className="ml-auto mt-0.5 shrink-0 text-rose-500" />}
               </button>

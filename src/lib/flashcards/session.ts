@@ -2,6 +2,7 @@ import { SM2 } from "./constants";
 import { comparePriority, isDue } from "./srs";
 import type { UserFlashcardProgressDoc } from "./types";
 import {
+  fetchAllUserProgress,
   fetchPublishedCards,
   fetchUserProgress,
   type FlashcardListItem,
@@ -16,6 +17,13 @@ export type StudyCard = {
   /** true se é a primeira vez que o aluno ve este card */
   isNew: boolean;
 };
+
+/**
+ * Quantos cards o fallback de progresso inspeciona quando a query em massa
+ * nao esta disponivel. Mantido baixo porque esse caminho faz 1 round-trip a
+ * cada 25 cards.
+ */
+const FALLBACK_PROGRESS_SCAN = 600;
 
 /**
  * Configuracao da sessao de estudo do dia.
@@ -47,10 +55,22 @@ export async function buildStudyQueue(opts: StudyQueueOpts): Promise<StudyCard[]
   const cards = await fetchPublishedCards({ deckId });
   if (!cards.length) return [];
 
-  const progressMap = await fetchUserProgress(
-    userId,
-    cards.map((c) => c.id)
-  );
+  // Caminho normal: uma unica query cobre todo o progresso do aluno.
+  let progressMap = await fetchAllUserProgress(userId);
+
+  if (!progressMap) {
+    // Fallback (regras sem permissao de `list`): volta ao getDoc por card. Como
+    // isso custa 1 round-trip a cada 25 cards, limitamos o conjunto verificado
+    // para nao travar a tela — o resultado fica degradado, nao quebrado.
+    console.warn(
+      "[flashcards] query de progresso negada; usando fallback limitado a " +
+        `${FALLBACK_PROGRESS_SCAN} cards. Faça deploy das regras do Firestore.`
+    );
+    progressMap = await fetchUserProgress(
+      userId,
+      cards.slice(0, FALLBACK_PROGRESS_SCAN).map((c) => c.id)
+    );
+  }
 
   const now = new Date();
   const learningOrReview: StudyCard[] = [];
