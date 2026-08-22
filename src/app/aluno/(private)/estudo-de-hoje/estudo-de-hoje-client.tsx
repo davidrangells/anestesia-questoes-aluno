@@ -26,8 +26,8 @@ import {
   Target,
 } from "lucide-react";
 import { getDailyStatus } from "@/lib/daily";
+import { getFlashcardOverview } from "@/lib/flashcards/stats";
 import { dayKey } from "@/lib/study-tracking";
-import { Timestamp } from "firebase/firestore";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -37,16 +37,6 @@ function cn(...xs: Array<string | false | null | undefined>) {
 
 function safeStr(v: unknown): string {
   return String(v ?? "").trim();
-}
-
-function tsToMs(v: unknown): number {
-  if (!v) return 0;
-  if (v instanceof Timestamp) return v.toMillis();
-  if (typeof v === "object" && v !== null && "toMillis" in v) {
-    return (v as { toMillis: () => number }).toMillis();
-  }
-  if (typeof v === "number") return v;
-  return 0;
 }
 
 function formatMin(min: number): string {
@@ -63,7 +53,8 @@ const MIN_PER_FLASHCARD = 0.5;
 const MIN_PER_DAILY     = 2.0;
 const MAX_NEW_QUESTIONS = 20;
 const MAX_REVIEWS       = 15;
-const MAX_FLASHCARDS    = 20;
+// O teto de flashcards vive em DAILY_FLASHCARD_TARGET (lib/flashcards/stats),
+// aplicado dentro do getFlashcardOverview.
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 
@@ -107,10 +98,10 @@ export default function EstudoDeHojeClient() {
     setLoading(true);
 
     try {
-      const [statsSnap, settingsSnap, fcSnap, errorSnap, dailyStatus] = await Promise.all([
+      const [statsSnap, settingsSnap, fcOverview, errorSnap, dailyStatus] = await Promise.all([
         getDoc(doc(db, "users", u.uid, "meta", "stats")),
         getDoc(doc(db, "users", u.uid, "meta", "settings")),
-        getDocs(collection(db, "users", u.uid, "flashcards")),
+        getFlashcardOverview(u.uid),
         getDocs(collection(db, "users", u.uid, "errorNotebook")),
         getDailyStatus(u.uid),
       ]);
@@ -139,15 +130,9 @@ export default function EstudoDeHojeClient() {
         weakTheme = worst?.theme ?? null;
       }
 
-      // Flashcards vencidos
-      const now = Date.now();
-      const flashcardsDue = Math.min(
-        MAX_FLASHCARDS,
-        fcSnap.docs.filter((d) => {
-          const fc = d.data() as { nextReview?: unknown };
-          return tsToMs(fc.nextReview) <= now;
-        }).length
-      );
+      // Flashcards disponiveis hoje (SM-2). O helper ja aplica o teto diario —
+      // nao envolver em Math.min de novo aqui.
+      const flashcardsDue = fcOverview.due;
 
       // Erros pendentes
       const errorsPending = Math.min(
