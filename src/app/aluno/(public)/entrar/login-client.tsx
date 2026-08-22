@@ -148,7 +148,7 @@ export default function LoginClient() {
               {[
                 { icon: "🧠", text: "+3.500 questões comentadas" },
                 { icon: "📊", text: "Dashboard de desempenho por tema" },
-                { icon: "🎯", text: "Simulados ME1, ME2, ME3 e TEA" },
+                { icon: "🎯", text: "Simulados ME1, ME2, ME3, TEA e TSA" },
               ].map((f) => (
                 <div key={f.text} className="flex items-center gap-3 rounded-2xl border border-blue-200/20 bg-white/60 px-4 py-3 dark:border-blue-300/10 dark:bg-[#081937]/60">
                   <span className="text-base">{f.icon}</span>

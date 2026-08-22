@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { fetchOrCreateSettings, fetchPublishedDecks, type DeckListItem } from "@/lib/flashcards/queries";
 import { useHasFlashcardsAccess } from "@/lib/flashcards/access";
+import { SESSION_SIZES } from "@/lib/flashcards/session";
 import { MODULE_LABEL } from "@/lib/flashcards/constants";
 import type { UserFlashcardSettingsDoc, Module } from "@/lib/flashcards/types";
 
@@ -31,6 +32,8 @@ function normalize(s: string) {
 }
 
 const INITIAL_VISIBLE = 12;
+const SESSION_SIZE_KEY = "flashcards:sessionSize";
+const DEFAULT_SESSION_SIZE = 20;
 
 export default function FlashcardsClient() {
   const access = useHasFlashcardsAccess();
@@ -41,6 +44,28 @@ export default function FlashcardsClient() {
   const [weakThemes, setWeakThemes] = useState<string[]>([]);
   const [search, setSearch] = useState("");
   const [showAll, setShowAll] = useState(false);
+  // Tamanho da sessao: null = fila completa. Fica salvo no navegador.
+  const [sessionSize, setSessionSize] = useState<number | null>(DEFAULT_SESSION_SIZE);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(SESSION_SIZE_KEY);
+    if (saved === "all") setSessionSize(null);
+    else if (saved && Number(saved) > 0) setSessionSize(Number(saved));
+  }, []);
+
+  function chooseSessionSize(n: number | null) {
+    setSessionSize(n);
+    window.localStorage.setItem(SESSION_SIZE_KEY, n === null ? "all" : String(n));
+  }
+
+  /** Acrescenta ?n= ao link de estudo, conforme a escolha do aluno. */
+  const studyHref = (deckId?: string) => {
+    const params = new URLSearchParams();
+    if (deckId) params.set("deck", deckId);
+    if (sessionSize) params.set("n", String(sessionSize));
+    const qs = params.toString();
+    return `/aluno/flashcards/estudar${qs ? `?${qs}` : ""}`;
+  };
 
   useEffect(() => {
     return onAuthStateChanged(auth, (u) => setUid(u?.uid ?? null));
@@ -176,10 +201,7 @@ export default function FlashcardsClient() {
       )}
 
       {/* Card destacado: Estudar hoje */}
-      <Link
-        href="/aluno/flashcards/estudar"
-        className="group block overflow-hidden rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-8 text-white shadow-lg transition hover:shadow-xl"
-      >
+      <div className="overflow-hidden rounded-3xl border border-blue-200 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 p-8 text-white shadow-lg">
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-blue-200">
@@ -197,10 +219,48 @@ export default function FlashcardsClient() {
             <Sparkles size={32} className="text-yellow-300" />
           </div>
         </div>
-        <div className="mt-6 inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-sm font-bold text-blue-700 transition group-hover:bg-blue-50">
-          Começar agora →
+
+        {/* Tamanho da sessão */}
+        <div className="mt-6">
+          <div className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-200">
+            Quantos cards agora?
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {SESSION_SIZES.map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => chooseSessionSize(n)}
+                className={`rounded-xl px-4 py-1.5 text-sm font-bold transition ${
+                  sessionSize === n
+                    ? "bg-white text-blue-700"
+                    : "bg-white/15 text-white hover:bg-white/25"
+                }`}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => chooseSessionSize(null)}
+              className={`rounded-xl px-4 py-1.5 text-sm font-bold transition ${
+                sessionSize === null
+                  ? "bg-white text-blue-700"
+                  : "bg-white/15 text-white hover:bg-white/25"
+              }`}
+            >
+              Todos
+            </button>
+          </div>
         </div>
-      </Link>
+
+        <Link
+          href={studyHref()}
+          className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-sm font-bold text-blue-700 transition hover:bg-blue-50"
+        >
+          Começar agora →
+        </Link>
+      </div>
 
       {/* Sugeridos para você */}
       {!loading && suggestedDecks.length > 0 && !isSearching && (
@@ -216,7 +276,7 @@ export default function FlashcardsClient() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {suggestedDecks.map((deck) => (
-              <DeckCard key={deck.id} deck={deck} highlighted />
+              <DeckCard key={deck.id} deck={deck} href={studyHref(deck.id)} highlighted />
             ))}
           </div>
         </div>
@@ -284,7 +344,7 @@ export default function FlashcardsClient() {
           <>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {visibleDecks.map((deck) => (
-                <DeckCard key={deck.id} deck={deck} />
+                <DeckCard key={deck.id} deck={deck} href={studyHref(deck.id)} />
               ))}
             </div>
             {hiddenCount > 0 && (
@@ -304,10 +364,18 @@ export default function FlashcardsClient() {
   );
 }
 
-function DeckCard({ deck, highlighted }: { deck: DeckListItem; highlighted?: boolean }) {
+function DeckCard({
+  deck,
+  href,
+  highlighted,
+}: {
+  deck: DeckListItem;
+  href: string;
+  highlighted?: boolean;
+}) {
   return (
     <Link
-      href={`/aluno/flashcards/estudar?deck=${encodeURIComponent(deck.id)}`}
+      href={href}
       className={`group rounded-2xl border p-4 shadow-sm transition hover:shadow-md ${
         highlighted
           ? "border-rose-200 bg-rose-50/50 hover:border-rose-300 dark:border-rose-900/50 dark:bg-rose-950/20 dark:hover:border-rose-700"

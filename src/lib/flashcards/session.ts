@@ -33,7 +33,16 @@ export type StudyQueueOpts = {
   deckId?: string;
   newCardsLimit?: number;
   reviewsLimit?: number;
+  /**
+   * Teto de cards da sessao escolhido pelo aluno (10/20/30/50).
+   * Aplicado no fim, sobre a fila ja intercalada, entao a proporcao de
+   * revisoes e cards novos e preservada. Ausente = sessao completa.
+   */
+  sessionSize?: number;
 };
+
+/** Opcoes de tamanho de sessao oferecidas ao aluno. */
+export const SESSION_SIZES = [10, 20, 30, 50] as const;
 
 /**
  * Monta a fila de estudo do "Deck do Dia":
@@ -50,6 +59,7 @@ export async function buildStudyQueue(opts: StudyQueueOpts): Promise<StudyCard[]
     deckId,
     newCardsLimit = SM2.DEFAULT_NEW_CARDS_PER_DAY,
     reviewsLimit = SM2.DEFAULT_REVIEWS_PER_DAY,
+    sessionSize,
   } = opts;
 
   const cards = await fetchPublishedCards({ deckId });
@@ -119,5 +129,9 @@ export async function buildStudyQueue(opts: StudyQueueOpts): Promise<StudyCard[]
     for (let k = 0; k < 3 && ri < R; k += 1) queue.push(reviews[ri++]!);
     if (ni < N) queue.push(news[ni++]!);
   }
+
+  // Corta no tamanho pedido pelo aluno. Como o corte vem depois da intercalacao,
+  // os cards vencidos mais urgentes continuam entrando primeiro.
+  if (sessionSize && sessionSize > 0) return queue.slice(0, sessionSize);
   return queue;
 }
