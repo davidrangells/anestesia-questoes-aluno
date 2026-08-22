@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
 import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2, NotebookPen, AlertTriangle, Sparkles } from "lucide-react";
 import { getDailyStatus } from "@/lib/daily";
+import { getFlashcardOverview } from "@/lib/flashcards/stats";
 
 type SessionDoc = {
   id: string;
@@ -296,10 +297,10 @@ export default function DashboardClient() {
       const ref = collection(db, "users", u.uid, "sessions");
       const qy = query(ref, orderBy("updatedAt", "desc"), limit(80));
 
-      const [snap, userSnap, fcSnap, statsSnap, settingsSnap, dailyStatus, errorSnap] = await Promise.all([
+      const [snap, userSnap, fcOverview, statsSnap, settingsSnap, dailyStatus, errorSnap] = await Promise.all([
         getDocs(qy),
         getDoc(doc(db, "users", u.uid)),
-        getDocs(collection(db, "users", u.uid, "flashcards")),
+        getFlashcardOverview(u.uid),
         getDoc(doc(db, "users", u.uid, "meta", "stats")),
         getDoc(doc(db, "users", u.uid, "meta", "settings")),
         getDailyStatus(u.uid),
@@ -350,15 +351,11 @@ export default function DashboardClient() {
       }
       setDaily(dailyStatus ? { exists: dailyStatus.exists, answered: dailyStatus.answered } : null);
 
-      {
-        const fcDocs = fcSnap.docs.map((d) => d.data() as { box?: number; nextReview?: unknown });
-        const nowMs = Date.now();
-        setFlashcardStats({
-          studied: fcDocs.length,
-          due: fcDocs.filter((fc) => tsToMs(fc.nextReview) <= nowMs).length,
-          mastered: fcDocs.filter((fc) => (fc.box ?? 1) >= 4).length,
-        });
-      }
+      setFlashcardStats({
+        studied: fcOverview.studied,
+        due: fcOverview.due,
+        mastered: fcOverview.mastered,
+      });
 
       const items: SessionDoc[] = snap.docs.map((docSnap) => ({
         id: docSnap.id,
