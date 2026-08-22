@@ -103,6 +103,17 @@ export async function fetchOriginalQuestionText(
 }
 
 /**
+ * Teto de varredura da colecao de cards.
+ *
+ * IMPORTANTE: este limite NAO pode ficar abaixo do total de cards publicados.
+ * O Firestore devolve os documentos em ordem de ID quando nao ha orderBy, ou
+ * seja: um teto menor que a colecao recorta sempre a MESMA fatia inicial e os
+ * cards com ID "alto" (ex.: prefixo fc_liv_) ficam invisiveis no Deck do Dia.
+ * Se a colecao passar deste valor, aumente aqui.
+ */
+export const MAX_CARDS_SCAN = 8000;
+
+/**
  * Lista cards publicados (com/sem filtro por deck).
  * Aluno TSA vê tudo: cards de ME + TEA + TSA.
  */
@@ -117,7 +128,7 @@ export async function fetchPublishedCards(opts?: {
   ];
   if (opts?.deckId) constraints.push(where("deckIds", "array-contains", opts.deckId));
   if (opts?.moduleId) constraints.push(where("moduleId", "==", opts.moduleId));
-  constraints.push(fbLimit(opts?.max ?? 500));
+  constraints.push(fbLimit(opts?.max ?? MAX_CARDS_SCAN));
 
   const q = query(collection(db, COL_FLASHCARDS), ...constraints);
   const snap = await getDocs(q);
@@ -165,6 +176,62 @@ export function progressDocId(userId: string, flashcardId: string): string {
   return `${userId}_${flashcardId}`;
 }
 
+function toProgressDoc(
+  userId: string,
+  flashcardId: string,
+  data: Record<string, unknown>
+): UserFlashcardProgressDoc {
+  return {
+    userId: (data.userId as string) ?? userId,
+    flashcardId: (data.flashcardId as string) ?? flashcardId,
+    deckId: (data.deckId as string | null) ?? null,
+    easeFactor: (data.easeFactor as number) ?? SM2.DEFAULT_EASE,
+    interval: (data.interval as number) ?? 0,
+    repetitions: (data.repetitions as number) ?? 0,
+    box: (data.box as number) ?? 0,
+    status: (data.status as SrsStatus) ?? "new",
+    lastReviewedAt: toDate(data.lastReviewedAt),
+    nextReviewAt: toDate(data.nextReviewAt),
+    timesReviewed: (data.timesReviewed as number) ?? 0,
+    timesCorrect: (data.timesCorrect as number) ?? 0,
+    timesAlmost: (data.timesAlmost as number) ?? 0,
+    timesWrong: (data.timesWrong as number) ?? 0,
+    createdAt: toDate(data.createdAt) ?? new Date(),
+    updatedAt: toDate(data.updatedAt) ?? new Date(),
+  };
+}
+
+/**
+ * Busca TODO o progresso do aluno numa unica query (where userId == uid).
+ *
+ * Substitui o getDoc-por-card do fetchUserProgress: o volume aqui e o numero de
+ * cards que o aluno JA estudou (tipicamente centenas), nao o tamanho da colecao.
+ *
+ * Depende da permissao de `list` em userFlashcardProgress (firestore.rules).
+ * Retorna null se a query for negada, para o chamador cair no fallback.
+ */
+export async function fetchAllUserProgress(
+  userId: string
+): Promise<Map<string, UserFlashcardProgressDoc> | null> {
+  try {
+    const q = query(
+      collection(db, COL_USER_FLASHCARD_PROGRESS),
+      where("userId", "==", userId),
+      fbLimit(MAX_CARDS_SCAN)
+    );
+    const snap = await getDocs(q);
+    const result = new Map<string, UserFlashcardProgressDoc>();
+    snap.docs.forEach((d) => {
+      const data = d.data() as Record<string, unknown>;
+      const fcId = (data.flashcardId as string) || d.id.replace(`${userId}_`, "");
+      if (fcId) result.set(fcId, toProgressDoc(userId, fcId, data));
+    });
+    return result;
+  } catch {
+    return null;
+  }
+}
+
 export async function fetchUserProgress(
   userId: string,
   flashcardIds: string[]
@@ -184,24 +251,7 @@ export async function fetchUserProgress(
     snaps.forEach((snap, idx) => {
       if (snap.exists()) {
         const data = snap.data() as Record<string, unknown>;
-        result.set(chunk[idx]!, {
-          userId: (data.userId as string) ?? userId,
-          flashcardId: (data.flashcardId as string) ?? chunk[idx]!,
-          deckId: (data.deckId as string | null) ?? null,
-          easeFactor: (data.easeFactor as number) ?? SM2.DEFAULT_EASE,
-          interval: (data.interval as number) ?? 0,
-          repetitions: (data.repetitions as number) ?? 0,
-          box: (data.box as number) ?? 0,
-          status: (data.status as SrsStatus) ?? "new",
-          lastReviewedAt: toDate(data.lastReviewedAt),
-          nextReviewAt: toDate(data.nextReviewAt),
-          timesReviewed: (data.timesReviewed as number) ?? 0,
-          timesCorrect: (data.timesCorrect as number) ?? 0,
-          timesAlmost: (data.timesAlmost as number) ?? 0,
-          timesWrong: (data.timesWrong as number) ?? 0,
-          createdAt: toDate(data.createdAt) ?? new Date(),
-          updatedAt: toDate(data.updatedAt) ?? new Date(),
-        });
+        result.set(chunk[idx]!, toProgressDoc(userId, chunk[idx]!, data));
       }
     });
   }

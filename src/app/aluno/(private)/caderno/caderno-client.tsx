@@ -89,7 +89,7 @@ function getExplanation(q: QuestionDoc): string {
   return safeStr(q.explanation ?? q.comentario ?? q.comment ?? "");
 }
 
-const ALLOWED_TAGS = new Set(["p", "br", "strong", "b", "em", "i", "u", "span", "ul", "ol", "li", "blockquote", "code", "pre"]);
+const ALLOWED_TAGS = new Set(["p", "br", "strong", "b", "em", "i", "u", "sub", "sup", "span", "ul", "ol", "li", "blockquote", "code", "pre"]);
 
 function sanitizeRich(raw: string): string {
   if (typeof window === "undefined") return raw;
@@ -488,6 +488,15 @@ function ErrorCard({
                 />
               )}
 
+              {safeStr(detail.imageUrl) ? (
+                /* eslint-disable-next-line @next/next/no-img-element */
+                <img
+                  src={safeStr(detail.imageUrl)}
+                  alt="Imagem da questão"
+                  className="max-h-56 w-auto rounded-xl border border-slate-200 dark:border-slate-700"
+                />
+              ) : null}
+
               {/* Alternativas */}
               {Array.isArray(detail.options) && detail.options.length > 0 && (
                 <div className="space-y-1.5">
@@ -513,7 +522,17 @@ function ErrorCard({
                         )}>
                           {oid}
                         </span>
-                        <span className="text-slate-700 dark:text-slate-200">{safeStr(opt.text) || "—"}</span>
+                        <span className="min-w-0 text-slate-700 dark:text-slate-200">
+                          <span className="block">{safeStr(opt.text) || "—"}</span>
+                          {opt.imageUrl ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={opt.imageUrl}
+                              alt=""
+                              className="mt-2 max-h-36 rounded-lg border border-slate-200 dark:border-slate-700"
+                            />
+                          ) : null}
+                        </span>
                         {isCorrect && <CheckCircle2 size={15} className="ml-auto shrink-0 text-emerald-500" />}
                         {isChosen && !isCorrect && <XCircle size={15} className="ml-auto shrink-0 text-rose-500" />}
                       </div>

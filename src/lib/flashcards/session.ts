@@ -2,6 +2,7 @@ import { SM2 } from "./constants";
 import { comparePriority, isDue } from "./srs";
 import type { UserFlashcardProgressDoc } from "./types";
 import {
+  fetchAllUserProgress,
   fetchPublishedCards,
   fetchUserProgress,
   type FlashcardListItem,
@@ -18,6 +19,13 @@ export type StudyCard = {
 };
 
 /**
+ * Quantos cards o fallback de progresso inspeciona quando a query em massa
+ * nao esta disponivel. Mantido baixo porque esse caminho faz 1 round-trip a
+ * cada 25 cards.
+ */
+const FALLBACK_PROGRESS_SCAN = 600;
+
+/**
  * Configuracao da sessao de estudo do dia.
  */
 export type StudyQueueOpts = {
@@ -25,7 +33,16 @@ export type StudyQueueOpts = {
   deckId?: string;
   newCardsLimit?: number;
   reviewsLimit?: number;
+  /**
+   * Teto de cards da sessao escolhido pelo aluno (10/20/30/50).
+   * Aplicado no fim, sobre a fila ja intercalada, entao a proporcao de
+   * revisoes e cards novos e preservada. Ausente = sessao completa.
+   */
+  sessionSize?: number;
 };
+
+/** Opcoes de tamanho de sessao oferecidas ao aluno. */
+export const SESSION_SIZES = [10, 20, 30, 50] as const;
 
 /**
  * Monta a fila de estudo do "Deck do Dia":
@@ -42,15 +59,28 @@ export async function buildStudyQueue(opts: StudyQueueOpts): Promise<StudyCard[]
     deckId,
     newCardsLimit = SM2.DEFAULT_NEW_CARDS_PER_DAY,
     reviewsLimit = SM2.DEFAULT_REVIEWS_PER_DAY,
+    sessionSize,
   } = opts;
 
   const cards = await fetchPublishedCards({ deckId });
   if (!cards.length) return [];
 
-  const progressMap = await fetchUserProgress(
-    userId,
-    cards.map((c) => c.id)
-  );
+  // Caminho normal: uma unica query cobre todo o progresso do aluno.
+  let progressMap = await fetchAllUserProgress(userId);
+
+  if (!progressMap) {
+    // Fallback (regras sem permissao de `list`): volta ao getDoc por card. Como
+    // isso custa 1 round-trip a cada 25 cards, limitamos o conjunto verificado
+    // para nao travar a tela — o resultado fica degradado, nao quebrado.
+    console.warn(
+      "[flashcards] query de progresso negada; usando fallback limitado a " +
+        `${FALLBACK_PROGRESS_SCAN} cards. Faça deploy das regras do Firestore.`
+    );
+    progressMap = await fetchUserProgress(
+      userId,
+      cards.slice(0, FALLBACK_PROGRESS_SCAN).map((c) => c.id)
+    );
+  }
 
   const now = new Date();
   const learningOrReview: StudyCard[] = [];
@@ -99,5 +129,9 @@ export async function buildStudyQueue(opts: StudyQueueOpts): Promise<StudyCard[]
     for (let k = 0; k < 3 && ri < R; k += 1) queue.push(reviews[ri++]!);
     if (ni < N) queue.push(news[ni++]!);
   }
+
+  // Corta no tamanho pedido pelo aluno. Como o corte vem depois da intercalacao,
+  // os cards vencidos mais urgentes continuam entrando primeiro.
+  if (sessionSize && sessionSize > 0) return queue.slice(0, sessionSize);
   return queue;
 }

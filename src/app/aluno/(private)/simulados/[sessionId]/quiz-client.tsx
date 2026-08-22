@@ -113,6 +113,8 @@ const ALLOWED_RICH_TAGS = new Set([
   "i",
   "u",
   "s",
+  "sub",
+  "sup",
   "span",
   "ul",
   "ol",

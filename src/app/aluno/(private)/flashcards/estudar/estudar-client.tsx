@@ -26,6 +26,8 @@ import type { SrsAnswer, UserFlashcardProgressDoc } from "@/lib/flashcards/types
 export default function EstudarClient() {
   const searchParams = useSearchParams();
   const deckId = searchParams.get("deck") || undefined;
+  // ?n=10|20|30|50 — tamanho da sessao escolhido na tela de flashcards.
+  const sessionSize = Number(searchParams.get("n")) || undefined;
 
   const access = useHasFlashcardsAccess();
   const [uid, setUid] = useState<string | null>(null);
@@ -62,7 +64,7 @@ export default function EstudarClient() {
     (async () => {
       setLoading(true);
       try {
-        const q = await buildStudyQueue({ userId: uid, deckId });
+        const q = await buildStudyQueue({ userId: uid, deckId, sessionSize });
         if (!alive) return;
         setQueue(q);
         setIndex(0);
@@ -74,7 +76,7 @@ export default function EstudarClient() {
     return () => {
       alive = false;
     };
-  }, [access.hasAccess, uid, deckId, access.loading, reloadKey]);
+  }, [access.hasAccess, uid, deckId, sessionSize, access.loading, reloadKey]);
 
   const restartSession = useCallback(() => {
     setReloadKey((k) => k + 1);
