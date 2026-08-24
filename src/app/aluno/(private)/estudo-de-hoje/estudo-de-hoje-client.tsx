@@ -25,7 +25,7 @@ import {
   BookOpen,
   Target,
 } from "lucide-react";
-import { getDailyStatus } from "@/lib/daily";
+import { getDailyStatus, pickFocusTheme } from "@/lib/daily";
 import { getFlashcardOverview } from "@/lib/flashcards/stats";
 import { dayKey } from "@/lib/study-tracking";
 
@@ -115,20 +115,12 @@ export default function EstudoDeHojeClient() {
       const dailyQuestionsGoal = Number(settings.dailyQuestionsGoal ?? 20);
       const dailyFlashcardsGoal = Number(settings.dailyFlashcardsGoal ?? 10);
 
-      // Tema fraco (byTheme com amostra mínima de 5)
-      let weakTheme: string | null = null;
+      // Tema-foco do dia: rodízio entre os temas mais fracos.
+      // Usa o mesmo helper da Questão do Dia para as duas partes da tela nunca
+      // apontarem temas diferentes (antes o banner exigia 5 respostas e a
+      // Questão do Dia exigia 3, então divergiam).
       const byTheme = stats.byTheme as Record<string, { total?: number; correct?: number }> | undefined;
-      if (byTheme) {
-        let worst: { theme: string; acc: number } | null = null;
-        for (const [t, v] of Object.entries(byTheme)) {
-          const total = Number(v?.total ?? 0);
-          const correct = Number(v?.correct ?? 0);
-          if (total < 5) continue;
-          const acc = correct / total;
-          if (!worst || acc < worst.acc) worst = { theme: t, acc };
-        }
-        weakTheme = worst?.theme ?? null;
-      }
+      const weakTheme = pickFocusTheme(byTheme);
 
       // Flashcards disponiveis hoje (SM-2). O helper ja aplica o teto diario —
       // nao envolver em Math.min de novo aqui.

@@ -78,17 +78,50 @@ async function fetchQuestion(qid: string): Promise<RawQuestion | null> {
   return { id: snap.id, ...(snap.data() as Record<string, unknown>) };
 }
 
-function pickWeakTheme(stats: StatsDoc | null): string | null {
-  if (!stats?.byTheme) return null;
-  let worst: { tema: string; acc: number } | null = null;
-  for (const [tema, agg] of Object.entries(stats.byTheme)) {
-    const total = Number(agg?.total ?? 0);
-    const correct = Number(agg?.correct ?? 0);
-    if (total < 3) continue; // amostra mínima
-    const acc = correct / total;
-    if (!worst || acc < worst.acc) worst = { tema, acc };
-  }
-  return worst?.tema ?? null;
+/** Amostra mínima para um tema entrar no ranking de pontos fracos. */
+export const MIN_THEME_SAMPLE = 3;
+
+/** Quantos dos temas mais fracos entram no rodízio diário. */
+export const FOCUS_POOL_SIZE = 3;
+
+export type ThemeStats = Record<string, { total?: number; correct?: number }> | undefined;
+
+/**
+ * Ordena os temas do mais fraco para o mais forte, considerando apenas os que
+ * têm amostra suficiente. Empate é desfeito pelo nome, para a ordem ser estável.
+ */
+export function rankWeakThemes(byTheme: ThemeStats, minSample = MIN_THEME_SAMPLE): string[] {
+  if (!byTheme) return [];
+  return Object.entries(byTheme)
+    .map(([tema, agg]) => ({
+      tema,
+      total: Number(agg?.total ?? 0),
+      correct: Number(agg?.correct ?? 0),
+    }))
+    .filter((r) => r.total >= minSample)
+    .map((r) => ({ tema: r.tema, acc: r.correct / r.total }))
+    .sort((a, b) => a.acc - b.acc || a.tema.localeCompare(b.tema, "pt-BR"))
+    .map((r) => r.tema);
+}
+
+/** Dia do ano (1-366), usado para girar o rodízio uma vez por dia. */
+export function dayOfYear(date = new Date()): number {
+  const inicio = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date.getTime() - inicio.getTime()) / 86_400_000);
+}
+
+/**
+ * Tema-foco do dia: alterna entre os N temas mais fracos conforme o dia.
+ *
+ * Antes o foco era sempre o pior tema do histórico inteiro, então travava no
+ * mesmo assunto por semanas — o aluno via a mesma sugestão todo dia e parecia
+ * que o app não estava atualizando. O rodízio mantém o direcionamento para as
+ * fraquezas e ainda assim muda diariamente, mesmo sem o aluno responder nada.
+ */
+export function pickFocusTheme(byTheme: ThemeStats, date = new Date()): string | null {
+  const ranked = rankWeakThemes(byTheme).slice(0, FOCUS_POOL_SIZE);
+  if (ranked.length === 0) return null;
+  return ranked[dayOfYear(date) % ranked.length];
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -132,7 +165,7 @@ export async function getOrCreateDailyQuestion(uid: string): Promise<DailyQuesti
   ]);
 
   const stats = statsSnap.exists() ? (statsSnap.data() as StatsDoc) : null;
-  const weakTheme = pickWeakTheme(stats);
+  const weakTheme = pickFocusTheme(stats?.byTheme);
   const avoidId = yesterdaySnap.exists() ? safeStr((yesterdaySnap.data() as DailyQuestionDoc).questionId) : "";
 
   const pool: RawQuestion[] = qbSnap.docs
