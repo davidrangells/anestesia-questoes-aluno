@@ -9,7 +9,7 @@ import { Card, CardHeader, CardBody } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SkeletonDashboard } from "@/components/ui/skeleton";
 import { TrendingUp, TrendingDown, Minus, ChevronRight, BookOpen, Zap, Layers, Flame, CalendarDays, CheckCircle2, NotebookPen, AlertTriangle, Sparkles } from "lucide-react";
-import { getDailyStatus } from "@/lib/daily";
+import { getDailyStatus, themeTotal } from "@/lib/daily";
 import { getFlashcardOverview } from "@/lib/flashcards/stats";
 
 type SessionDoc = {
@@ -319,7 +319,7 @@ export default function DashboardClient() {
           streakCount?: number;
           todayAnswered?: number;
           todayFlashcards?: number;
-          byTheme?: Record<string, { total?: number; correct?: number }>;
+          byTheme?: Record<string, { total?: number; answered?: number; correct?: number }>;
         };
         setStreakCount(Number(s.streakCount ?? 0));
         setTodayProgress({
@@ -329,7 +329,9 @@ export default function DashboardClient() {
         if (s.byTheme) {
           const normalized: Record<string, { total: number; correct: number }> = {};
           for (const [t, v] of Object.entries(s.byTheme)) {
-            normalized[t] = { total: Number(v?.total ?? 0), correct: Number(v?.correct ?? 0) };
+            // themeTotal soma `total` (web) e `answered` (mobile) — os dois
+            // contadores registram eventos distintos no mesmo documento.
+            normalized[t] = { total: themeTotal(v), correct: Number(v?.correct ?? 0) };
           }
           setAllTimeByTheme(normalized);
         }

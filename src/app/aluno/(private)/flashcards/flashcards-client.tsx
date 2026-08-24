@@ -21,6 +21,7 @@ import { useHasFlashcardsAccess } from "@/lib/flashcards/access";
 import { SESSION_SIZES } from "@/lib/flashcards/session";
 import { MODULE_LABEL } from "@/lib/flashcards/constants";
 import type { UserFlashcardSettingsDoc, Module } from "@/lib/flashcards/types";
+import { rankWeakThemes, type ThemeStats } from "@/lib/daily";
 
 /** Remove acentos e baixa a caixa para comparar/buscar sem sensibilidade. */
 function normalize(s: string) {
@@ -104,20 +105,11 @@ export default function FlashcardsClient() {
       try {
         const snap = await getDoc(doc(db, "users", uid, "meta", "stats"));
         if (!alive || !snap.exists()) return;
-        const byTheme = (snap.data().byTheme ?? {}) as Record<
-          string,
-          { answered?: number; correct?: number }
-        >;
-        const ranked = Object.entries(byTheme)
-          .filter(([, v]) => (v.answered ?? 0) >= 5)
-          .map(([theme, v]) => ({
-            theme,
-            rate: (v.correct ?? 0) / (v.answered ?? 1),
-          }))
-          .sort((a, b) => a.rate - b.rate)
-          .slice(0, 3)
-          .map((t) => t.theme);
-        setWeakThemes(ranked);
+        // Usa o mesmo ranking do "Estudo de Hoje". Antes esta tela filtrava por
+        // `v.answered`, campo que só o app mobile grava — para quem estudava no
+        // web o filtro nunca passava e a recomendação de decks ficava vazia.
+        const byTheme = snap.data().byTheme as ThemeStats;
+        setWeakThemes(rankWeakThemes(byTheme).slice(0, 3));
       } catch {
         // sugestão é opcional; falha silenciosa
       }
