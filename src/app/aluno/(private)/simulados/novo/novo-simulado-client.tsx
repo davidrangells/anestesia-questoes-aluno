@@ -137,29 +137,50 @@ export default function NovoSimuladoClient() {
         const pSnap = await getDocs(query(collection(db, "provas"), where("ativo", "==", true), orderBy("ordem", "asc"), limit(50)));
         setProvas(pSnap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Prova, "id">) })));
 
-        const collectedThemes = new Set<string>();
+        // Fonte da verdade dos temas: catalog_temas (os 54 pontos do Programa
+        // Teórico da SBA). Antes a lista era a união desse catálogo com TODO
+        // texto solto no campo `themes` das questões — qualquer tema granular
+        // gravado numa questão virava um filtro avulso, e a tela chegou a
+        // exibir dezenas de entradas fora do programa, com duplicatas por
+        // acento e caixa.
+        const catalogThemes: string[] = [];
         try {
-          const tSnap = await getDocs(collection(db, "temas"));
-          tSnap.docs.forEach((d) => {
-            const data = d.data() as TemaDoc;
-            if (data.ativo === false) return;
-            const label = data.nome ?? data.tema ?? data.title;
-            if (hasText(label)) collectedThemes.add(label.trim());
+          const cSnap = await getDocs(collection(db, "catalog_temas"));
+          cSnap.docs.forEach((d) => {
+            const data = d.data() as { title?: string; status?: string };
+            if (data.status === "inativo") return;
+            if (hasText(data.title)) catalogThemes.push(data.title.trim());
           });
         } catch { /* fallback abaixo */ }
 
+        // Fallback: se o catálogo não responder, usa o comportamento antigo
+        // para a tela não ficar sem nenhum filtro.
+        const fallbackThemes = new Set<string>();
         try {
           const qbSnap = await getDocs(collection(db, "questionsBank"));
           const pool: QuestionBankDoc[] = [];
           qbSnap.docs.forEach((d) => {
             const q = { id: d.id, ...(d.data() as Omit<QuestionBankDoc, "id">) };
             pool.push(q);
-            extractThemes(q).forEach((t) => collectedThemes.add(t));
+            if (catalogThemes.length === 0) extractThemes(q).forEach((t) => fallbackThemes.add(t));
           });
           setQuestionsPool(pool);
         } catch { /* mantém temas */ }
 
-        setTemas(Array.from(collectedThemes).sort((a, b) => a.localeCompare(b, "pt-BR")));
+        if (catalogThemes.length === 0) {
+          try {
+            const tSnap = await getDocs(collection(db, "temas"));
+            tSnap.docs.forEach((d) => {
+              const data = d.data() as TemaDoc;
+              if (data.ativo === false) return;
+              const label = data.nome ?? data.tema ?? data.title;
+              if (hasText(label)) fallbackThemes.add(label.trim());
+            });
+          } catch { /* sem fallback disponível */ }
+        }
+
+        const lista = catalogThemes.length > 0 ? catalogThemes : Array.from(fallbackThemes);
+        setTemas([...new Set(lista)].sort((a, b) => a.localeCompare(b, "pt-BR")));
       } finally {
         setLoading(false);
       }

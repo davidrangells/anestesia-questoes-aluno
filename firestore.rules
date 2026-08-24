@@ -66,6 +66,23 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // Catálogo oficial de temas (54 pontos do Programa Teórico da SBA).
+    // É a fonte da verdade da lista de filtros do "Novo simulado".
+    match /catalog_temas/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /catalog_niveis/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
+    match /catalog_provas/{id} {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     // Telemetria de atividade (escrita pelo aluno, lida só pelo admin via SDK admin)
     match /user_activity/{uid} {
       allow write: if isOwner(uid);
