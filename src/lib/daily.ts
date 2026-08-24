@@ -84,7 +84,23 @@ export const MIN_THEME_SAMPLE = 3;
 /** Quantos dos temas mais fracos entram no rodízio diário. */
 export const FOCUS_POOL_SIZE = 3;
 
-export type ThemeStats = Record<string, { total?: number; correct?: number }> | undefined;
+export type ThemeStats =
+  | Record<string, { total?: number; answered?: number; correct?: number }>
+  | undefined;
+
+/**
+ * Total de respostas de um tema.
+ *
+ * O app mobile (estudo-quiz) gravava `answered` enquanto o web gravava `total`,
+ * no MESMO documento users/{uid}/meta/stats. Cada plataforma lia só o próprio
+ * campo, então respostas dadas numa não contavam na outra e a acurácia saía
+ * errada nos dois lados. O mobile passou a gravar `total`; `answered` continua
+ * sendo somado aqui para não descartar o histórico de quem usou o app. Os dois
+ * contadores registram eventos distintos, então somar reconstrói o total real.
+ */
+export function themeTotal(agg: { total?: number; answered?: number } | undefined): number {
+  return Number(agg?.total ?? 0) + Number(agg?.answered ?? 0);
+}
 
 /**
  * Ordena os temas do mais fraco para o mais forte, considerando apenas os que
@@ -95,7 +111,7 @@ export function rankWeakThemes(byTheme: ThemeStats, minSample = MIN_THEME_SAMPLE
   return Object.entries(byTheme)
     .map(([tema, agg]) => ({
       tema,
-      total: Number(agg?.total ?? 0),
+      total: themeTotal(agg),
       correct: Number(agg?.correct ?? 0),
     }))
     .filter((r) => r.total >= minSample)
