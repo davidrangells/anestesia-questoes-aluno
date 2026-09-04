@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { recordAnswer } from "@/lib/study-tracking";
+import { embaralhaAlternativas, podeEmbaralhar } from "@/lib/shuffle-options";
 import { usePageHeader } from "@/components/aluno/AlunoPageHeaderContext";
 import { ChevronLeft, ChevronRight, CheckCircle2, XCircle, AlertCircle, Flag } from "lucide-react";
 import { SkeletonCard } from "@/components/ui/skeleton";
@@ -443,6 +444,16 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
     );
   }, [currentQuestion]);
 
+  // Letra da correta COMO ELA APARECE na tela. Com o embaralhamento, a opção
+  // salva como "C" pode estar em primeiro lugar e ser exibida como "A"; mostrar
+  // o id salvo aqui apontaria a alternativa errada para o aluno.
+  const letraCorreta = useMemo(() => {
+    const opts = currentQuestion?.options;
+    if (!Array.isArray(opts) || !correctId) return null;
+    const idx = opts.findIndex((o) => safeStr(o.id).toUpperCase() === safeStr(correctId).toUpperCase());
+    return idx >= 0 ? "ABCDE"[idx] ?? String(idx + 1) : null;
+  }, [currentQuestion, correctId]);
+
   const explanationText = useMemo(() => {
     const raw =
       currentQuestion?.explanation ??
@@ -503,8 +514,16 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
           return {
             ...question,
-            // Exibe sempre em ordem A, B, C, D, E (sem embaralhar na tela).
-            options: sortOptionsById(question.options),
+            // Ordena por id e então embaralha com semente (questão + sessão): a
+            // ordem fica fixa enquanto o aluno responde e ao rever o resultado,
+            // mas muda quando a mesma questão cair noutro simulado, para que se
+            // memorize o conteúdo e não a posição da correta. A ordenação prévia
+            // garante que a semente parta sempre da mesma base.
+            options: embaralhaAlternativas(
+              sortOptionsById(question.options),
+              `${question.id}|${sessionId}`,
+              podeEmbaralhar(question)
+            ),
           };
         })
         .filter(Boolean) as QuestionDoc[];
@@ -747,6 +766,11 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
         questionId: currentQuestion.id, // ✅ id do questionsBank
         selectedOptionId: selectedOptionId ?? null,
         correctOptionId: correctId ?? null,
+        // Ordem em que as alternativas apareceram para o aluno (ids do banco na
+        // sequência A, B, C, D da tela). Sem isso o admin não consegue entender
+        // um relato como "a alternativa B está errada", já que a B da tela não
+        // é a B do banco por causa do embaralhamento.
+        displayedOrder: (currentQuestion.options ?? []).map((o) => safeStr(o.id)),
         message: msg,
         origin: "web-aluno",
       });
@@ -856,7 +880,12 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
 
         {/* Alternativas */}
         <div className="space-y-2.5 px-6 py-5">
-          {currentQuestion.options?.map((opt) => {
+          {currentQuestion.options?.map((opt, idx) => {
+            // A letra exibida vem da POSIÇÃO na tela, não do id salvo no banco:
+            // com o embaralhamento, o id "C" pode aparecer em primeiro lugar e
+            // precisa ser rotulado "A". A resposta continua sendo registrada
+            // pelo id, então a correção não depende do que é exibido aqui.
+            const letra = "ABCDE"[idx] ?? String(idx + 1);
             const isSelected = selectedOptionId === opt.id;
             const showResult = shouldShowFeedback && !!correctId;
             const isCorrectOpt = showResult && opt.id === correctId;
@@ -893,7 +922,7 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                       ? "border-slate-900 bg-slate-900 text-white dark:border-slate-300 dark:bg-slate-100 dark:text-slate-900"
                       : "border-slate-200 bg-white text-slate-600 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-400"
                   )}>
-                    {opt.id}
+                    {letra}
                   </div>
                   <div className="min-w-0 pt-0.5">
                     <div
@@ -933,9 +962,9 @@ export default function QuizClient({ sessionId }: { sessionId: string }) {
                   )}>
                     {isCorrect ? "Você acertou!" : "Você errou."}
                   </div>
-                  {!isCorrect && correctId && (
+                  {!isCorrect && letraCorreta && (
                     <div className="mt-0.5 text-xs font-semibold text-rose-600 dark:text-rose-300">
-                      A resposta correta é a alternativa <strong>{correctId}</strong>
+                      A resposta correta é a alternativa <strong>{letraCorreta}</strong>
                     </div>
                   )}
                 </div>

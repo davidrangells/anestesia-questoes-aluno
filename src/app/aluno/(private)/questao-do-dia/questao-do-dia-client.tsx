@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
 import { getOrCreateDailyQuestion, markDailyAnswered, type RawQuestion } from "@/lib/daily";
 import { recordAnswer } from "@/lib/study-tracking";
+import { embaralhaAlternativas, podeEmbaralhar } from "@/lib/shuffle-options";
 import { Button } from "@/components/ui/button";
 import { CalendarDays, CheckCircle2, XCircle, ChevronLeft, RotateCcw, Sparkles } from "lucide-react";
 
@@ -122,7 +123,19 @@ export default function QuestaoDoDiaClient() {
   }, [load]);
 
   const correctId = useMemo(() => (question ? getCorrectId(question) : ""), [question]);
-  const options = useMemo(() => (question ? getOptions(question) : []), [question]);
+  // Embaralha com semente (questão + dia): a ordem não muda se o aluno recarregar
+  // a página, mas é outra quando a mesma questão reaparecer noutro dia.
+  const options = useMemo(
+    () =>
+      question
+        ? embaralhaAlternativas(
+            getOptions(question),
+            `${question.id}|${dateKey}`,
+            podeEmbaralhar(question as { shuffleOptions?: boolean | number | null; options?: { text?: string | null }[] })
+          )
+        : [],
+    [question, dateKey]
+  );
   const statementHtml = useMemo(() => (question ? toHtml(getStatement(question)) : ""), [question]);
   const imageUrl = useMemo(() => (question ? getImageUrl(question) : ""), [question]);
   const explanationHtml = useMemo(() => (question ? toHtml(getExplanation(question)) : ""), [question]);
@@ -220,7 +233,7 @@ export default function QuestaoDoDiaClient() {
 
         {/* Options */}
         <div className="mt-5 space-y-2">
-          {options.map((opt) => {
+          {options.map((opt, idx) => {
             const isThisCorrect = revealed && opt.id === correctId;
             const isThisChosen = opt.id === safeStr(selected).toUpperCase();
             const isWrongChosen = revealed && isThisChosen && opt.id !== correctId;
@@ -245,7 +258,9 @@ export default function QuestaoDoDiaClient() {
                   "flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-black text-white",
                   isThisCorrect ? "bg-emerald-500" : isWrongChosen ? "bg-rose-500" : isThisChosen && !revealed ? "bg-blue-500" : "bg-slate-300 dark:bg-slate-600"
                 )}>
-                  {opt.id}
+                  {/* letra pela POSIÇÃO na tela, não pelo id salvo: com o
+                      embaralhamento o id "C" pode aparecer em primeiro lugar */}
+                  {"ABCDE"[idx] ?? String(idx + 1)}
                 </span>
                 <span className="min-w-0 pt-0.5 text-slate-700 dark:text-slate-200">
                   <span className="block">{opt.text || "—"}</span>
