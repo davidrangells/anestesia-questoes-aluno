@@ -39,6 +39,8 @@ type QuestionBankDoc = {
   provaSigla?: unknown;
   nivel?: unknown;
   level?: unknown;
+  examYear?: unknown;
+  prova_ano?: unknown;
   options?: Array<{ id?: unknown }>;
 };
 
@@ -73,6 +75,17 @@ function extractExamTokens(q: QuestionBankDoc): string[] {
 }
 function extractLevelTokens(q: QuestionBankDoc): string[] {
   return uniq([q.specialization, q.nivel, q.level].map(norm).filter(Boolean));
+}
+
+/**
+ * Ano da prova. `examYear` e `prova_ano` sao espelhados no banco; ficam
+ * preenchidos em cerca de metade do acervo, entao questao sem ano e normal
+ * e deve continuar aparecendo quando nenhum ano esta selecionado.
+ */
+function extractYear(q: QuestionBankDoc): string {
+  const raw = q.examYear ?? q.prova_ano;
+  const n = Number(String(raw ?? "").trim());
+  return Number.isInteger(n) && n > 1900 ? String(n) : "";
 }
 
 // Pill component
@@ -126,7 +139,9 @@ export default function NovoSimuladoClient() {
   const [selectedProvas, setSelectedProvas] = useState<string[]>([]);
   const [selectedNiveis, setSelectedNiveis] = useState<string[]>([]);
   const [selectedTemas, setSelectedTemas] = useState<string[]>([]);
-  const [qtd, setQtd] = useState<number>(10);
+  const [selectedAnos, setSelectedAnos] = useState<string[]>([]);
+  // number = quantidade fixa; "all" = prova completa (usa tudo o que o filtro devolver)
+  const [qtd, setQtd] = useState<number | "all">(10);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [themeQuery, setThemeQuery] = useState("");
 
@@ -189,7 +204,9 @@ export default function NovoSimuladoClient() {
   }, []);
 
   useEffect(() => {
-    const rawQtd = Number(searchParams.get("qtd"));
+    const raw = (searchParams.get("qtd") || "").trim().toLowerCase();
+    if (raw === "all" || raw === "todas") { setQtd("all"); return; }
+    const rawQtd = Number(raw);
     if ([10, 20, 30, 50].includes(rawQtd)) setQtd(rawQtd);
   }, [searchParams]);
 
@@ -220,8 +237,9 @@ export default function NovoSimuladoClient() {
     const provasLabel = selectedProvas.length
       ? selectedProvas.map((pid) => { const p = provas.find((x) => x.id === pid); return String(p?.sigla || p?.nome || p?.id || "").trim(); }).filter(Boolean).join(", ")
       : "Todas";
-    return `Simulado • ${provasLabel} • ${selectedNiveis.length === 0 ? "Todos" : selectedNiveis.join(", ")} • ${selectedTemas.length === 0 ? "Todos" : selectedTemas.join(", ")}`;
-  }, [selectedNiveis, selectedProvas, selectedTemas, provas]);
+    const anosLabel = selectedAnos.length ? [...selectedAnos].sort((a, b) => Number(b) - Number(a)).join(", ") : "Todos";
+    return `Simulado • ${provasLabel} • ${anosLabel} • ${selectedNiveis.length === 0 ? "Todos" : selectedNiveis.join(", ")} • ${selectedTemas.length === 0 ? "Todos" : selectedTemas.join(", ")}`;
+  }, [selectedNiveis, selectedProvas, selectedTemas, selectedAnos, provas]);
 
   const titleDisplay = useMemo(() => {
     const parts = title.split("•").map((p) => p.trim());
@@ -237,10 +255,31 @@ export default function NovoSimuladoClient() {
 
   const activeQuestions = useMemo(() => questionsPool.filter((q) => q.isActive !== false), [questionsPool]);
 
-  function matchesFilters(q: QuestionBankDoc, { examTokens, niveis, temasSelecionados }: { examTokens: string[]; niveis: string[]; temasSelecionados: string[] }) {
+  // Anos presentes no acervo, mais recente primeiro.
+  const anos = useMemo(() => {
+    const set = new Set<string>();
+    activeQuestions.forEach((q) => {
+      const ano = extractYear(q);
+      if (ano) set.add(ano);
+    });
+    return Array.from(set).sort((a, b) => Number(b) - Number(a));
+  }, [activeQuestions]);
+
+  useEffect(() => {
+    const rawAno = (searchParams.get("ano") || "").trim();
+    if (!rawAno || anos.length === 0) return;
+    if (!anos.includes(rawAno)) return;
+    setSelectedAnos((prev) => (prev.includes(rawAno) ? prev : [...prev, rawAno]));
+  }, [searchParams, anos]);
+
+  function matchesFilters(q: QuestionBankDoc, { examTokens, niveis, temasSelecionados, anos }: { examTokens: string[]; niveis: string[]; temasSelecionados: string[]; anos: string[] }) {
     if (examTokens.length > 0) {
       const tokens = extractExamTokens(q);
       if (!tokens.some((t) => examTokens.includes(t))) return false;
+    }
+    if (anos.length > 0) {
+      const ano = extractYear(q);
+      if (!ano || !anos.includes(ano)) return false;
     }
     if (niveis.length > 0) {
       const levels = extractLevelTokens(q);
@@ -254,29 +293,42 @@ export default function NovoSimuladoClient() {
   }
 
   const availableQuestions = useMemo(
-    () => activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas })),
-    [activeQuestions, selectedExamTokens, selectedNiveis, selectedTemas]
+    () => activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas, anos: selectedAnos })),
+    [activeQuestions, selectedExamTokens, selectedNiveis, selectedTemas, selectedAnos]
   );
   const availableCount = availableQuestions.length;
-  const effectiveQuestionCount = Math.min(qtd, availableCount);
+  const effectiveQuestionCount = qtd === "all" ? availableCount : Math.min(qtd, availableCount);
 
   const provaCounts = useMemo(() => Object.fromEntries(provas.map((p) => {
     const provaTokens = [p.sigla, p.id, p.nome].map(norm).filter(Boolean);
-    return [p.id, activeQuestions.filter((q) => matchesFilters(q, { examTokens: provaTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas })).length];
-  })) as Record<string, number>, [provas, activeQuestions, selectedNiveis, selectedTemas]);
+    return [p.id, activeQuestions.filter((q) => matchesFilters(q, { examTokens: provaTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas, anos: selectedAnos })).length];
+  })) as Record<string, number>, [provas, activeQuestions, selectedNiveis, selectedTemas, selectedAnos]);
 
   const nivelCounts = useMemo(() => Object.fromEntries(["R1", "R2", "R3"].map((n) => [
-    n, activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: [n], temasSelecionados: selectedTemas })).length
-  ])) as Record<string, number>, [activeQuestions, selectedExamTokens, selectedTemas]);
+    n, activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: [n], temasSelecionados: selectedTemas, anos: selectedAnos })).length
+  ])) as Record<string, number>, [activeQuestions, selectedExamTokens, selectedTemas, selectedAnos]);
+
+  const anoCounts = useMemo(() => Object.fromEntries(anos.map((a) => [
+    a, activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas, anos: [a] })).length
+  ])) as Record<string, number>, [anos, activeQuestions, selectedExamTokens, selectedNiveis, selectedTemas]);
 
   const temaCounts = useMemo(() => Object.fromEntries(temas.map((t) => [
-    t, activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: [t] })).length
-  ])) as Record<string, number>, [temas, activeQuestions, selectedExamTokens, selectedNiveis]);
+    t, activeQuestions.filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: [t], anos: selectedAnos })).length
+  ])) as Record<string, number>, [temas, activeQuestions, selectedExamTokens, selectedNiveis, selectedAnos]);
 
   async function pickQuestions(): Promise<QuestionBankDoc[]> {
     const source = questionsPool.length > 0 ? questionsPool
       : (await getDocs(collection(db, "questionsBank"))).docs.map((d) => ({ id: d.id, ...(d.data() as Omit<QuestionBankDoc, "id">) }));
-    return shuffle(source.filter((q) => q.isActive !== false).filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas }))).slice(0, qtd);
+    const pool = source
+      .filter((q) => q.isActive !== false)
+      .filter((q) => matchesFilters(q, { examTokens: selectedExamTokens, niveis: selectedNiveis, temasSelecionados: selectedTemas, anos: selectedAnos }));
+
+    // Prova completa: mantem a ordem original do exame em vez de sortear. Os
+    // lotes importados usam ID sequencial (TEA2023_Q001...Q080), entao ordenar
+    // por ID devolve a prova na ordem em que ela caiu.
+    if (qtd === "all") return [...pool].sort((a, b) => a.id.localeCompare(b.id, "pt-BR"));
+
+    return shuffle(pool).slice(0, qtd);
   }
 
   const createSimulado = async () => {
@@ -288,7 +340,7 @@ export default function NovoSimuladoClient() {
       if (!questionIds.length) return;
       const sessionRef = await addDoc(collection(db, "users", user.uid, "sessions"), {
         title, titleDisplay, status: "in_progress",
-        filters: { provas: selectedExamTokens, provaIds: selectedProvas, niveis: selectedNiveis, temas: selectedTemas },
+        filters: { provas: selectedExamTokens, provaIds: selectedProvas, niveis: selectedNiveis, temas: selectedTemas, anos: selectedAnos },
         questionIds, totalQuestions: questionIds.length, currentIndex: 0,
         answeredCount: 0, correctCount: 0, wrongCount: 0, scorePercent: 0,
         updatedAt: serverTimestamp(), createdAt: serverTimestamp(),
@@ -302,7 +354,7 @@ export default function NovoSimuladoClient() {
   };
 
   const canCreate = !creating && availableCount > 0;
-  const hasFilters = selectedProvas.length > 0 || selectedNiveis.length > 0 || selectedTemas.length > 0;
+  const hasFilters = selectedProvas.length > 0 || selectedNiveis.length > 0 || selectedTemas.length > 0 || selectedAnos.length > 0;
 
   if (loading) {
     return (
@@ -383,9 +435,53 @@ export default function NovoSimuladoClient() {
                 {n} questões
               </button>
             ))}
+            <button type="button" onClick={() => setQtd("all")}
+              className={cn(
+                "col-span-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition",
+                qtd === "all"
+                  ? "border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-500"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+              )}>
+              Prova completa{availableCount > 0 ? ` (${availableCount})` : ""}
+            </button>
           </div>
+          {qtd === "all" && (
+            <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+              Usa todas as questões do filtro, na ordem original da prova.
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Ano da prova */}
+      {anos.length > 0 && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800/80 dark:bg-slate-900/50">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-slate-500">Filtro</div>
+              <div className="mt-0.5 font-black text-slate-900 dark:text-slate-100">Ano da prova</div>
+              <div className="mt-1 text-xs text-slate-400 dark:text-slate-500">
+                Sem filtro = todos os anos. Combine com o tipo de exame e
+                &quot;Prova completa&quot; para refazer uma prova inteira.
+              </div>
+            </div>
+            {selectedAnos.length > 0 && (
+              <button type="button" onClick={() => setSelectedAnos([])}
+                className="shrink-0 text-xs font-semibold text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">
+                Limpar
+              </button>
+            )}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {anos.map((a) => (
+              <Pill key={a} label={a}
+                active={selectedAnos.includes(a)}
+                disabled={!selectedAnos.includes(a) && (anoCounts[a] ?? 0) === 0}
+                onClick={() => setSelectedAnos((prev) => toggle(prev, a))} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Temas */}
       <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800/80 dark:bg-slate-900/50">
