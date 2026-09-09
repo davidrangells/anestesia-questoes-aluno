@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Check,
   Frown,
+  Home,
   Meh,
   Sparkles,
   ThumbsUp,
@@ -221,6 +222,12 @@ export default function EstudarClient() {
         }
         return;
       }
+      // Desvira o card para reler a pergunta, sem responder
+      if (e.key === "ArrowLeft" || e.key === "Backspace") {
+        e.preventDefault();
+        setFlipped(false);
+        return;
+      }
       if (e.key === "1") void applyAnswer("again");
       else if (e.key === "2") void applyAnswer("hard");
       else if (e.key === "3" || e.key === " " || e.key === "Enter") {
@@ -273,13 +280,26 @@ export default function EstudarClient() {
   return (
     <div className="mx-auto max-w-3xl">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <Link
-          href="/aluno/flashcards"
-          className="inline-flex items-center gap-1 text-sm font-semibold text-slate-500 hover:text-slate-700 dark:text-slate-400"
-        >
-          <ArrowLeft size={14} /> Voltar
-        </Link>
+      <div className="mb-4 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1">
+          {/* "Voltar" desvira o card para reler a pergunta (so faz sentido
+              com o card virado). "Inicio" sai da sessao. */}
+          <button
+            type="button"
+            onClick={() => setFlipped(false)}
+            disabled={!flipped}
+            title={flipped ? "Voltar para a pergunta" : "O card já está na pergunta"}
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <ArrowLeft size={14} /> Voltar
+          </button>
+          <Link
+            href="/aluno/flashcards"
+            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          >
+            <Home size={14} /> Início
+          </Link>
+        </div>
         <div className="text-xs font-semibold text-slate-500">
           {index + 1} / {total}
         </div>
@@ -510,7 +530,7 @@ function DoneScreen({
           href="/aluno/flashcards"
           className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
         >
-          Voltar
+          <Home size={14} /> Início
         </Link>
         {stats.reviewed > 0 && (
           <button
