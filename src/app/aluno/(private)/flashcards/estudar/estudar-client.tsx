@@ -282,17 +282,9 @@ export default function EstudarClient() {
       {/* Header */}
       <div className="mb-4 flex items-center justify-between gap-2">
         <div className="flex items-center gap-1">
-          {/* "Voltar" desvira o card para reler a pergunta (so faz sentido
-              com o card virado). "Inicio" sai da sessao. */}
-          <button
-            type="button"
-            onClick={() => setFlipped(false)}
-            disabled={!flipped}
-            title={flipped ? "Voltar para a pergunta" : "O card já está na pergunta"}
-            className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 disabled:pointer-events-none disabled:opacity-40 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
-          >
-            <ArrowLeft size={14} /> Voltar
-          </button>
+          {/* O proprio card e clicavel: toque vira para a resposta e toque de
+              novo volta para a pergunta (melhor no celular). Aqui fica so a
+              saida da sessao. Atalhos de teclado continuam valendo. */}
           <Link
             href="/aluno/flashcards"
             className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
@@ -315,7 +307,13 @@ export default function EstudarClient() {
 
       {/* Card com flip 3D */}
       <div className="flashcard-scene">
-        <div className={`flashcard-inner ${flipped ? "is-flipped" : ""}`}>
+        <div
+          role="button"
+          tabIndex={-1}
+          aria-label={flipped ? "Voltar para a pergunta" : "Mostrar resposta"}
+          onClick={() => setFlipped((f) => !f)}
+          className={`flashcard-inner cursor-pointer ${flipped ? "is-flipped" : ""}`}
+        >
           {/* FRENTE */}
           <div className="flashcard-face flashcard-front rounded-3xl border border-slate-200 bg-white shadow-lg dark:border-slate-800 dark:bg-slate-900">
             <div className="flex flex-col p-6 sm:p-8">
@@ -344,11 +342,15 @@ export default function EstudarClient() {
               <div className="mt-auto pt-6 text-center">
                 <button
                   type="button"
-                  onClick={() => setFlipped(true)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setFlipped(true);
+                  }}
                   className="inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-blue-700 to-blue-500 px-8 py-4 text-base font-bold text-white shadow-lg transition hover:from-blue-600 hover:to-blue-400"
                 >
                   Mostrar resposta <Kbd>Espaço</Kbd>
                 </button>
+                <p className="mt-3 text-xs text-slate-400">ou toque no card</p>
               </div>
             </div>
           </div>
@@ -372,6 +374,9 @@ export default function EstudarClient() {
                   </p>
                 </>
               )}
+              <p className="mt-6 text-center text-xs text-slate-400">
+                Toque no card para rever a pergunta
+              </p>
             </div>
           </div>
         </div>
