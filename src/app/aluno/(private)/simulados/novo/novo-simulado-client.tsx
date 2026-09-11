@@ -136,6 +136,12 @@ export default function NovoSimuladoClient() {
   const [selectedNiveis, setSelectedNiveis] = useState<string[]>([]);
   const [selectedTemas, setSelectedTemas] = useState<string[]>([]);
   const [selectedAnos, setSelectedAnos] = useState<string[]>([]);
+  // "Prova completa" so faz sentido para refazer uma prova especifica: exige
+  // prova + ano. Sem isso, seria o banco inteiro numa sessao so.
+  const canFullExam = selectedProvas.length > 0 && selectedAnos.length > 0;
+  useEffect(() => {
+    if (qtd === "all" && !canFullExam) setQtd(10);
+  }, [qtd, canFullExam]);
   // number = quantidade fixa; "all" = prova completa (usa tudo o que o filtro devolver)
   const [qtd, setQtd] = useState<number | "all">(10);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
@@ -430,9 +436,10 @@ export default function NovoSimuladoClient() {
                 {n} questões
               </button>
             ))}
-            <button type="button" onClick={() => setQtd("all")}
+            <button type="button" onClick={() => setQtd("all")} disabled={!canFullExam}
+              title={canFullExam ? undefined : "Selecione uma prova e um ano"}
               className={cn(
-                "col-span-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition",
+                "col-span-2 rounded-2xl border px-4 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-40",
                 qtd === "all"
                   ? "border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-500"
                   : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
@@ -440,11 +447,13 @@ export default function NovoSimuladoClient() {
               Prova completa
             </button>
           </div>
-          {qtd === "all" && (
-            <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
-              Usa todas as questões do filtro, na ordem original da prova.
-            </div>
-          )}
+          <div className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+            {qtd === "all"
+              ? "Usa todas as questões da prova escolhida, na ordem original."
+              : !canFullExam
+              ? "Para refazer uma prova completa, selecione uma prova e um ano."
+              : null}
+          </div>
         </div>
       </div>
 
