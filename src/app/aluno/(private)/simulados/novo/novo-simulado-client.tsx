@@ -115,12 +115,8 @@ function Pill({
         disabled && !active && "cursor-not-allowed opacity-40"
       )}
     >
+      {/* Contagens do acervo nao sao exibidas ao aluno (decisao de produto). */}
       <span className="truncate">{label}</span>
-      {count !== undefined && (
-        <span className={cn("text-xs", active ? "opacity-70" : "text-slate-400 dark:text-slate-500")}>
-          ({count})
-        </span>
-      )}
     </button>
   );
 }
@@ -297,7 +293,6 @@ export default function NovoSimuladoClient() {
     [activeQuestions, selectedExamTokens, selectedNiveis, selectedTemas, selectedAnos]
   );
   const availableCount = availableQuestions.length;
-  const effectiveQuestionCount = qtd === "all" ? availableCount : Math.min(qtd, availableCount);
 
   const provaCounts = useMemo(() => Object.fromEntries(provas.map((p) => {
     const provaTokens = [p.sigla, p.id, p.nome].map(norm).filter(Boolean);
@@ -442,7 +437,7 @@ export default function NovoSimuladoClient() {
                   ? "border-slate-900 bg-slate-900 text-white dark:border-blue-500 dark:bg-blue-500"
                   : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
               )}>
-              Prova completa{availableCount > 0 ? ` (${availableCount})` : ""}
+              Prova completa
             </button>
           </div>
           {qtd === "all" && (
@@ -530,7 +525,7 @@ export default function NovoSimuladoClient() {
                           !active && count === 0 && "cursor-not-allowed opacity-40"
                         )}>
                         <span className="min-w-0 truncate font-medium text-slate-800 dark:text-slate-200">
-                          {t} <span className="text-slate-400 dark:text-slate-500">({count})</span>
+                          {t}
                         </span>
                         <span className={cn(
                           "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold",
@@ -578,16 +573,14 @@ export default function NovoSimuladoClient() {
           <div className="min-w-0">
             <div className="text-sm font-black text-slate-900 dark:text-slate-100">
               {availableCount > 0 ? (
-                <>
-                  <span className="text-blue-600 dark:text-blue-400">{effectiveQuestionCount}</span> questão(ões)
-                </>
+                qtd === "all" ? "Prova completa" : <>Simulado de <span className="text-blue-600 dark:text-blue-400">{qtd}</span> questões</>
               ) : (
                 <span className="text-rose-500">Sem questões disponíveis</span>
               )}
             </div>
             <div className="text-xs text-slate-500 dark:text-slate-400">
               {availableCount > 0
-                ? `${availableCount} disponíveis com os filtros${hasFilters ? " selecionados" : ""}`
+                ? (hasFilters ? "Com os filtros selecionados" : "Todo o banco de questões")
                 : "Ajuste os filtros para continuar"}
             </div>
           </div>
