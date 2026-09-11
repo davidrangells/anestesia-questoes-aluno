@@ -136,14 +136,14 @@ export default function NovoSimuladoClient() {
   const [selectedNiveis, setSelectedNiveis] = useState<string[]>([]);
   const [selectedTemas, setSelectedTemas] = useState<string[]>([]);
   const [selectedAnos, setSelectedAnos] = useState<string[]>([]);
+  // number = quantidade fixa; "all" = prova completa (usa tudo o que o filtro devolver)
+  const [qtd, setQtd] = useState<number | "all">(10);
   // "Prova completa" so faz sentido para refazer uma prova especifica: exige
   // prova + ano. Sem isso, seria o banco inteiro numa sessao so.
   const canFullExam = selectedProvas.length > 0 && selectedAnos.length > 0;
   useEffect(() => {
     if (qtd === "all" && !canFullExam) setQtd(10);
   }, [qtd, canFullExam]);
-  // number = quantidade fixa; "all" = prova completa (usa tudo o que o filtro devolver)
-  const [qtd, setQtd] = useState<number | "all">(10);
   const [themePickerOpen, setThemePickerOpen] = useState(false);
   const [themeQuery, setThemeQuery] = useState("");
 
