@@ -2,7 +2,11 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { FieldValue } from "firebase-admin/firestore";
+import { Resend } from "resend";
 import { adminDb } from "@/lib/firebaseAdmin";
+import { buildLeadResultEmailHtml, type LeadResultado } from "./email";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 const ALLOWED_ORIGINS = new Set([
   "https://anestesiaquestoes.com.br",
@@ -61,10 +65,29 @@ export async function POST(req: NextRequest) {
       if (!body.resultado || typeof body.resultado.total !== "number") {
         return NextResponse.json({ error: "Resultado ausente." }, { status: 400, headers });
       }
-      await adminDb.collection("leads").doc(body.leadId).set(
+      const ref = adminDb.collection("leads").doc(body.leadId);
+      await ref.set(
         { resultado: body.resultado, resultadoEm: FieldValue.serverTimestamp() },
         { merge: true }
       );
+
+      // E-mail de boas-vindas com o resultado (uma única vez por lead; falha não derruba a API)
+      try {
+        const snap = await ref.get();
+        const lead = snap.data() as { nome?: string; email?: string; emailResultadoEm?: unknown } | undefined;
+        if (lead?.email && !lead.emailResultadoEm) {
+          await resend.emails.send({
+            from: "Anestesia Questões <noreply@anestesiaquestoes.com.br>",
+            to: lead.email,
+            subject: "Seu resultado no simulado gratuito — Anestesia Questões",
+            html: buildLeadResultEmailHtml(lead.nome ?? "", body.resultado as LeadResultado),
+          });
+          await ref.set({ emailResultadoEm: FieldValue.serverTimestamp() }, { merge: true });
+        }
+      } catch (err) {
+        console.error("[leads] falha ao enviar e-mail de resultado:", err);
+      }
+
       return NextResponse.json({ ok: true, id: body.leadId }, { status: 200, headers });
     }
 
